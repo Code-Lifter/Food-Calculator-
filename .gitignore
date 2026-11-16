@@ -1,0 +1,6 @@
+# Personal session data (body stats, plans): keep out of the public repo
+test.json
+test-fixed.json
+*.session.json
+.txt
+.DS_Store
