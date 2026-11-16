@@ -24,21 +24,27 @@ function phaseGrams() {
 }
 
 // Two prep days split the list: the part of a short-life food only needed later moves to a mid-week top-up.
-// Fixed (🔒) amounts stay in the main shop. Returns copies of the foods with each list's grams.
+// Returns copies of the foods with each list's grams.
 function shopLists() {
   const buy = state.foods.filter(f => f.grams > 0);
-  if (state.prep.mode !== 'two') return { main: buy, topUp: [] };
-  const phase = phaseGrams();
+  const phase = state.prep.mode === 'two' ? phaseGrams() : {};
   const main = [], topUp = [];
   buy.forEach(f => {
+    const have = Math.min(f.grams, haveOf(f));
     const p = phase[f.id];
-    const early = p ? Math.min(f.grams, Math.ceil(p.early - 1e-9)) : f.grams;
-    if (f.locked || !isShortLife(f) || !p || !(p.late > 0) || f.grams - early <= 0) { main.push(f); return; }
-    if (early > 0) main.push({ ...f, grams: early });
-    topUp.push({ ...f, grams: f.grams - early });
+    const split = state.prep.mode === 'two' && isShortLife(f) && p && p.late > 0;
+    const early = split ? Math.min(f.grams, Math.ceil(p.early - 1e-9)) : f.grams;
+    // What's at home covers the main shop first, then the top-up
+    const earlyBuy = Math.max(0, early - have);
+    const lateBuy = Math.max(0, f.grams - early - Math.max(0, have - early));
+    if (earlyBuy > 0) main.push({ ...f, grams: earlyBuy, have });
+    if (lateBuy > 0) topUp.push({ ...f, grams: lateBuy, have: earlyBuy > 0 ? 0 : have });
   });
   return { main, topUp };
 }
+
+// Grams of a food already at home (step 5)
+const haveOf = f => Math.max(0, Number(state.stock[f.id]) || 0);
 
 // Same "Name - 1,200g" lines as food-prep.html, grouped by aisle with what to pick up
 function shoppingText() {

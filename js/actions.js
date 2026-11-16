@@ -69,36 +69,17 @@ const actions = {
     if (!m) return;
     reAddFoods(missingFoods([m]));
     commit();
-    toast('Back in your basket', { undoable: true });
+    toast('Back in your pantry', { undoable: true });
   },
   're-add-missing': () => {
     reAddFoods(missingFoods());
     commit();
-    toast('Back in your basket', { undoable: true });
+    toast('Back in your pantry', { undoable: true });
   },
   'toast-undo': () => {
     // Only reverses the change the toast was about; anything newer goes through ↶ Undo
     if (toastUndoDepth >= 0 && toastUndoDepth === undoStack.length) undo();
     else toast("You've changed things since — use ↶ Undo at the top");
-  },
-  'clear-shopping': () => {
-    if (!state.foods.length) return;
-    state.foods.forEach(f => { f.locked = false; });
-    commit();
-    toast('Shopping list cleared — foods your meals use stay', { undoable: true });
-  },
-  'toggle-lock': el => {
-    const f = foodById(el.dataset.id);
-    if (!f) return;
-    f.locked = !f.locked;
-    commit();
-    if (!foodById(f.id)) toast(`${f.name} isn't used by any meal, so it was removed`);
-  },
-  'unlock-short': () => {
-    const used = plannedGrams();
-    state.foods.forEach(f => { if (f.locked && (used[f.id] || 0) > f.grams + 1e-9) f.locked = false; });
-    commit();
-    toast('Your week plan now sets those amounts');
   },
   'add-ingredient': () => {
     if (!mbPicked) { toast('Search for a food and pick it from the list'); $('mb-search').focus(); return; }
@@ -106,7 +87,7 @@ const actions = {
     const grams = parseFloat($('mb-grams').value);
     if (!(grams > 0)) { toast('Enter a weight in grams'); $('mb-grams').focus(); return; }
     let food = kind === 'food' ? foodById(ref) : null;
-    if (!food) { mbPicked = null; toast('That food is no longer in your basket — search again'); return; }
+    if (!food) { mbPicked = null; toast('That food is no longer in your pantry — search again'); return; }
     // Typed weight is in the current mode; meals always store raw grams
     const raw = isCooked() ? grams / cookedFactorOf(food) : grams;
     const existing = draft.items.find(i => i.foodId === food.id);
@@ -248,6 +229,26 @@ const actions = {
     commit();
   },
   'autofill': autoFill,
+  // 🎲 a different meal for one slot or snack (see rerollSlot)
+  'reroll': el => rerollSlot(Number(el.dataset.day), el.dataset.slot, Number(el.dataset.idx) || 0),
+  'stock-all': el => {
+    const f = stockFood(el.dataset.id);
+    if (!f) return;
+    // Counted foods round up to whole ones (27 bananas, not 26.7)
+    const u = countUnit(f);
+    state.stock[f.id] = u ? Math.ceil(f.grams / u.grams - 0.05) * u.grams : f.grams;
+    commit();
+  },
+  'clear-stock': () => {
+    if (!Object.keys(state.stock).length) return;
+    state.stock = {};
+    commit();
+    toast('Cleared what\'s at home', { undoable: true });
+  },
+  'reset-lean': () => {
+    state.macroLean = { protein: 0, carbs: 0, fat: 0 };
+    commit();
+  },
   'fit-portions': () => {
     const target = state.daily.cals;
     if (!target) { toast('Set your daily calories in step 1 first'); return; }
@@ -303,20 +304,17 @@ const actions = {
     toast('Shared plan loaded', { undoable: true });
   },
   'add-share': () => {
-    incomingShare.items.forEach(([name, grams, category, ...macros]) => {
-      const food = { name: String(name), grams: Math.max(0, Number(grams) || 0), category };
+    // A shared shopping list adds its foods to the pantry library (amounts come from your own plan)
+    incomingShare.items.forEach(([name, , category, ...macros]) => {
+      const food = { name: String(name), grams: 0, category };
       MACROS.forEach(([k], i) => { food[k] = Number(macros[i]) || 0; });
-      const existing = state.foods.find(f => f.name.toLowerCase() === food.name.toLowerCase());
-      if (existing) {
-        existing.grams += food.grams;
-        existing.locked = true;
-      } else state.foods.push({ id: idForNewFood(food.name), ...food, locked: true });
+      if (!state.foods.some(f => f.name.toLowerCase() === food.name.toLowerCase())) state.foods.push({ id: idForNewFood(food.name), ...food });
     });
     incomingShare = null;
     renderShareBanner();
     state.tab = 'shopping';
     commit();
-    toast('Shared items added to your basket', { undoable: true });
+    toast('Shared foods added to your pantry', { undoable: true });
   },
   'print': () => {
     renderSummary();
@@ -345,6 +343,7 @@ const actions = {
   'new-week': () => {
     state.plan = emptyPlan();
     state.checked = {};
+    state.stock = {};
     state.viewDay = todayIndex();
     commit();
     toast('New week started — your meals and foods are kept', { undoable: true });
@@ -423,6 +422,12 @@ const changeActions = {
   'toggle-check': el => {
     state.checked[el.dataset.id] = el.checked;
     commit();
+  },
+  'set-lean': el => {
+    if (!LEAN_MACROS.some(([k]) => k === el.dataset.lean)) return;
+    state.macroLean[el.dataset.lean] = Math.min(0.2, Math.max(-0.2, (parseFloat(el.value) || 0) / 100));
+    commit();
+    toast('Macro balance saved. Hit Auto-fill or ⚖️ Fit portions to use it');
   },
   'set-rule': el => {
     const def = RULE_DEFS.find(d => d.key === el.dataset.rule);

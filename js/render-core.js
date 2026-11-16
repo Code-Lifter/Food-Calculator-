@@ -2,17 +2,32 @@
 
 // --- Rendering ---
 function renderStatus() {
-  const wt = weekly(), bt = basketTotals(), pt = planTotals();
-  const cell = (label, value, color, mark = '') => `
-    <div class="min-w-0">
+  const wt = weekly(), pt = planTotals(), shop = shopCost();
+  const cell = (label, value, color, mark = '', cls = '') => `
+    <div class="min-w-0 ${cls}">
       <span class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider truncate">${label}</span>
       <span class="block text-sm sm:text-lg font-bold truncate ${color}">${mark}${value}</span>
     </div>`;
   $('status-bar').innerHTML =
     cell('Week target', wt.cals ? `${fmt(wt.cals)} kcal` : '—', 'text-slate-100') +
-    cell('In basket', `${fmt(bt.cals)} kcal`, statusColor(bt.cals, wt.cals), statusMark(bt.cals, wt.cals)) +
+    (shop.priced ? cell('Shop estimate', money(shop.total), 'text-slate-100') : cell('Pantry', plural(state.foods.length, 'food'), 'text-slate-100')) +
     cell('Planned', `${fmt(pt.cals)} kcal`, statusColor(pt.cals, wt.cals), statusMark(pt.cals, wt.cals)) +
-    cell('Protein planned', wt.protein ? `${fmt(pt.protein)} / ${fmt(wt.protein)}g` : `${fmt(pt.protein)}g`, statusColor(pt.protein, wt.protein), statusMark(pt.protein, wt.protein));
+    cell('Protein planned', wt.protein ? `${fmt(pt.protein)} / ${fmt(wt.protein)}g` : `${fmt(pt.protein)}g`, statusColor(pt.protein, wt.protein), statusMark(pt.protein, wt.protein)) +
+    sugarCell(cell);
+}
+
+// Daily average sugars from the planned food (and supplements) against the 18%-of-energy guide.
+// Grey "?" when under half the food eaten has a sugars value.
+function sugarCell(cell) {
+  const w = weekMicros();
+  const wide = 'col-span-2 sm:col-span-1'; // a row of its own on phones
+  if (!w.days) return cell('Sugar / day', '—', 'text-slate-100', '', wide);
+  const g = (w.food.sugars || 0) + (w.supp.sugars || 0);
+  const kcal = w.kcal || state.daily.cals;
+  const guide = kcal * SUGAR_PCT / 100 / 4;
+  if ((w.coverage.sugars || 0) < COVERAGE_MIN) return cell('Sugar / day', `${fmt(g)}g ?`, 'text-slate-400', '', wide);
+  const tone = guide ? microTone(g / guide, 'sugars') : MICRO_TONES.none;
+  return cell('Sugar / day', `${fmt(g)}${guide ? ` / ${fmt(guide)}` : ''}g`, tone.text, '', wide);
 }
 
 function renderTabs() {

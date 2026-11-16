@@ -37,7 +37,7 @@ const defaultState = () => ({
     bfPct: '', fatPct: '25', goal: 'maintain', cutSpeed: 'standard', bulkSpeed: 'standard'
   },
   daily: zero(),
-  foods: [],   // { id, name, grams, locked, cals, protein, carbs, fat } — macros per 100g; unlocked grams come from the plan
+  foods: [],   // { id, name, grams, cals, protein, carbs, fat, … } — the pantry library; macros per 100g; grams = what the week plan uses
   meals: [],   // { id, name, type, types, servings, fridgeDays, freezes, items: [{ foodId, grams }] } — grams are for the whole batch
   plan: emptyPlan(),
   mealsPerDay: 3,
@@ -48,6 +48,8 @@ const defaultState = () => ({
   currency: 'GBP',
   viewDay: todayIndex(), // the day shown on phones in the week grid
   rules: { ...DEFAULT_RULES },
+  stock: {}, // { foodId: grams already at home } — taken off the shopping list
+  macroLean: { protein: 0, carbs: 0, fat: 0 }, // how far auto-fill aims each macro off its target (−0.2 … +0.2)
   prep: { mode: 'freezer', second: 2 }, // 'freezer' = one prep day (Sunday) + freezer; 'two' = Sunday and the evening of day `second`
   tab: 'target'
 });
@@ -58,6 +60,7 @@ let mbPicked = null;
 let pendingDelete = null; // basket food id waiting for "Remove anyway"
 let eraseArmed = false; // first click on Erase everything arms it for 4 seconds
 let eraseTimer = null;
+let pantryQuery = ''; // view-only: the pantry search box
 let editingFoodId = null; // the food modal edits this food in place instead of adding one
 let editingSuppId = null;
 let microCardOpen = false; // view-only: the Ready tab's micronutrient card stays open across re-renders

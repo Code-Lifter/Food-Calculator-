@@ -4,12 +4,19 @@ input[type="number"] { -moz-appearance: textfield; }
 
 /* Box labels: hidden on screen, printed on their own by "Print box labels" */
 #labels-sheet { display: none; }
+@page { margin: 10mm; }
 @media print {
   body.printing-labels > *:not(#labels-sheet) { display: none !important; }
-  body.printing-labels #labels-sheet { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
-  .box-label { border: 1px dashed #000 !important; padding: 3mm; break-inside: avoid; display: flex; flex-direction: column; gap: 1mm; font-size: 10pt; min-height: 30mm; }
-  .box-label-place { font-weight: 800; font-size: 14pt; letter-spacing: 0.08em; }
-  .box-label-name { font-size: 12pt; }
+  /* Each label is exactly 5 cm × 5 cm; as many per row as the page fits (3 on A4/Letter with 10 mm margins) */
+  body.printing-labels #labels-sheet { display: grid !important; grid-template-columns: repeat(auto-fill, 50mm); grid-auto-rows: 50mm; gap: 3mm; }
+  .box-label {
+    width: 50mm; height: 50mm; box-sizing: border-box; overflow: hidden;
+    border: 1px dashed #000 !important; padding: 3mm; break-inside: avoid; page-break-inside: avoid;
+    display: flex; flex-direction: column; gap: 1mm; font-size: 8.5pt; line-height: 1.2;
+  }
+  .box-label-place { font-weight: 800; font-size: 13pt; letter-spacing: 0.08em; }
+  .box-label-name { font-size: 11pt; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .box-label > span:last-child { margin-top: auto; }
 }
 @media print {
   .no-print, [data-panel]:not([data-panel="summary"]) { display: none !important; }

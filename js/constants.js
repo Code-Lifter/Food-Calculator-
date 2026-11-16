@@ -58,6 +58,9 @@ const MAGNESIUM_19_30 = { male: 400, female: 310 };
 // Sodium is a limit to stay under (the NHMRC suggested dietary target), not a target to reach.
 // Sat fat has no target; under 10% of energy is the usual guide.
 const SODIUM_LIMIT = 2000, SAT_FAT_PCT = 10;
+// Total sugars (what labels show, fruit and milk included): the UK/EU reference intake is 90 g on 2,000 kcal,
+// i.e. 18% of energy. Scaled to the person's calories. Green up to it, yellow to 22.5% (125%), red above.
+const SUGAR_PCT = 18, SUGAR_HIGH_PCT = 22.5;
 // Upper levels, only used for warnings. Vitamin A's UL is for preformed vitamin A (retinol), but food data rarely
 // splits that out, so the total is compared and it may over-warn. Magnesium's UL applies to supplements only.
 const UL = { iron: 45, zinc: 40, vitD: 80, calcium: 2500, vitA: 3000, magnesium: 350 };

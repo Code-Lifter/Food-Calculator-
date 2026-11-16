@@ -6,6 +6,7 @@ const PANEL_RENDERERS = {
   shopping: () => { renderEnergyUnit(); $('currency').value = state.currency; renderShopping(); },
   meals: () => renderMeals(),
   plan: () => renderPlan(),
+  stock: () => renderStock(),
   summary: () => renderSummary()
 };
 
@@ -23,12 +24,10 @@ function showTab(tab) {
   PANEL_RENDERERS[tab]();
 }
 
-// Unlocked foods buy exactly what the week plan uses; ones no meal uses drop out of the basket
+// The pantry is a library: every food stays, and what to buy (f.grams) is always what the week plan uses
 function syncDerivedGrams() {
   const used = plannedGrams();
-  const referenced = new Set([...state.meals, draft].flatMap(m => m.items.map(i => i.foodId)));
-  removeFoods(state.foods.filter(f => !f.locked && !referenced.has(f.id)).map(f => f.id));
-  state.foods.forEach(f => { if (!f.locked) f.grams = Math.ceil((used[f.id] || 0) - 1e-9); });
+  state.foods.forEach(f => { f.grams = Math.ceil((used[f.id] || 0) - 1e-9); });
 }
 
 // View settings (open tab, raw/cooked, kJ/kcal) aren't part of undo history

@@ -16,7 +16,7 @@
     <header class="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-md">
       <div>
         <h1 class="font-bold text-lg text-slate-100">Weekly Meal Planner</h1>
-        <p class="text-xs text-slate-400">Targets → shopping list → meals → a full week of food.</p>
+        <p class="text-xs text-slate-400">Targets → pantry → meals → a full week of food and its shopping list.</p>
       </div>
       <div class="flex flex-wrap sm:justify-end gap-2">
         <button data-action="undo" id="btn-undo" title="Undo (Ctrl/⌘+Z)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium px-3 py-1.5 rounded-lg border border-slate-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-700">
@@ -43,15 +43,16 @@
     <div id="share-banner" class="no-print"></div>
 
     <!-- Always-visible status -->
-    <div id="status-bar" class="no-print sticky top-2 z-40 grid grid-cols-2 sm:grid-cols-4 gap-x-2 gap-y-1.5 bg-slate-800/95 backdrop-blur p-2 sm:p-3 rounded-xl border border-slate-700 shadow-lg text-center"></div>
+    <div id="status-bar" class="no-print sticky top-2 z-40 grid grid-cols-2 sm:grid-cols-5 gap-x-2 gap-y-1.5 bg-slate-800/95 backdrop-blur p-2 sm:p-3 rounded-xl border border-slate-700 shadow-lg text-center"></div>
 
     <!-- Step tabs -->
-    <nav id="tabs" role="tablist" aria-label="Steps" class="no-print grid grid-cols-5 gap-1 bg-slate-800 p-1 rounded-xl border border-slate-700">
+    <nav id="tabs" role="tablist" aria-label="Steps" class="no-print grid grid-cols-6 gap-1 bg-slate-800 p-1 rounded-xl border border-slate-700">
       <button data-tab="target" id="tab-target" role="tab" aria-controls="panel-target" class="tab-btn"><span aria-hidden="true">🎯</span><span><span class="hidden sm:inline">1. </span>Targets</span></button>
       <button data-tab="shopping" id="tab-shopping" role="tab" aria-controls="panel-shopping" class="tab-btn"><span aria-hidden="true">🥫</span><span><span class="hidden sm:inline">2. </span><span class="hidden md:inline">Single Food </span>Pantry</span></button>
       <button data-tab="meals" id="tab-meals" role="tab" aria-controls="panel-meals" class="tab-btn"><span aria-hidden="true">🍽️</span><span><span class="hidden sm:inline">3. </span>Meals</span></button>
       <button data-tab="plan" id="tab-plan" role="tab" aria-controls="panel-plan" class="tab-btn"><span aria-hidden="true">📅</span><span><span class="hidden sm:inline">4. </span>Week</span></button>
-      <button data-tab="summary" id="tab-summary" role="tab" aria-controls="panel-summary" class="tab-btn"><span aria-hidden="true">✅</span><span><span class="hidden sm:inline">5. </span>Ready</span></button>
+      <button data-tab="stock" id="tab-stock" role="tab" aria-controls="panel-stock" class="tab-btn"><span aria-hidden="true">🏠</span><span><span class="hidden sm:inline">5. </span>At home</span></button>
+      <button data-tab="summary" id="tab-summary" role="tab" aria-controls="panel-summary" class="tab-btn"><span aria-hidden="true">✅</span><span><span class="hidden sm:inline">6. </span>Ready</span></button>
     </nav>
 
     <!-- 1. Targets -->
@@ -181,24 +182,23 @@
       <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">2. Single Food Pantry</h2>
-          <p class="text-xs text-slate-400 mt-1">Your single ingredients. Add one from its label, tap ✏️ Edit to change anything (name, aisle, macros, vitamins and minerals), then use it in your meals in step 3.</p>
+          <p class="text-xs text-slate-400 mt-1">Your library of single ingredients, per 100g from the label. Use them in your meals in step 3 — how much to buy is worked out from your week plan, so there's no amount to enter here.</p>
         </div>
         <button data-action="open-food" class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-4 rounded-lg transition-colors">+ Add a food</button>
       </div>
 
       <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Left to Buy This Week</h2>
-          <div class="flex flex-wrap gap-2">
-            <select id="currency" data-action="set-currency" aria-label="Currency" class="text-xs bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-200 focus:outline-none focus:border-brand">
-              <option value="AUD">AUD $</option>
-              <option value="GBP">GBP £</option>
-            </select>
-            <button data-action="clear-shopping" class="text-xs bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 py-1.5 px-3 rounded border border-rose-800/60 transition-colors">Clear</button>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative flex-1 min-w-[12rem]">
+            <input id="pantry-search" type="search" autocomplete="off" spellcheck="false" placeholder="🔍 Search your pantry…" aria-label="Search your pantry"
+              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-brand placeholder-slate-500">
           </div>
+          <select id="currency" data-action="set-currency" aria-label="Currency for prices" title="Currency for prices" class="text-sm bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-slate-200 focus:outline-none focus:border-brand">
+            <option value="AUD">AUD $</option>
+            <option value="GBP">GBP £</option>
+          </select>
         </div>
-        <p class="text-xs text-slate-400">🔓 From plan: buys what your week plan uses. 🔒 Fixed amount: buys the amount you typed.</p>
-        <div id="basket-left" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+        <p id="pantry-count" class="text-xs text-slate-400"></p>
         <div id="basket-list" class="space-y-2"></div>
       </div>
       <div class="flex gap-2"><button data-goto="target" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">← Back</button><button data-goto="meals" class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">Next: Make your meals →</button></div>
@@ -209,7 +209,7 @@
       <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">3. Your Meals &amp; Snacks</h2>
-          <p class="text-xs text-slate-400 mt-1">Build a meal from any food — its ingredients go into your basket.</p>
+          <p class="text-xs text-slate-400 mt-1">Build a meal from foods in your pantry.</p>
         </div>
         <button data-action="open-meal" class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-4 rounded-lg transition-colors">+ Create a meal</button>
       </div>
@@ -232,15 +232,32 @@
         <div id="meals-per-day" class="flex flex-wrap items-center gap-2 text-xs text-slate-300"></div>
         <div id="plan-left" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
         <div id="plan-rules"></div>
-        <p class="text-xs text-slate-400">Auto-fill spreads your own meals across the week (keeping to the repeat limit, favouring meals whose protein/carb/fat mix suits your targets) and adds a snack or two. Then for each day it scales every meal's 🔗 ratio ingredients together and moves ↕ range ingredients within their limits until the day hits your calories and macros. 📌 fixed ones never change. Picked meals yourself? Hit ⚖️ Fit portions. The small box is the portion size; the Ready tab turns it all into grams.</p>
+        <div id="macro-lean"></div>
+        <p class="text-xs text-slate-400">Auto-fill spreads your own meals across the week (keeping to the repeat limit) and adds a snack or two, then tries swapping in other meals wherever that brings a day closer to your targets. For each day it works out the portion sizes (🔗 ratio ingredients scale together) and ↕ range amounts that land on your calories first, then protein, carbs and fat. 📌 fixed ones never change. Picked meals yourself? Hit ⚖️ Fit portions. Don't fancy something? 🎲 swaps it for a different meal that still fits the day. The small box is the portion size; the Ready tab turns it all into grams.</p>
         <div id="plan-warnings"></div>
       </div>
       <div id="day-picker" class="md:hidden"></div>
       <div id="plan-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
-      <div class="flex gap-2"><button data-goto="meals" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">← Back</button><button data-goto="summary" class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">Finish: See my lists →</button></div>
+      <div class="flex gap-2"><button data-goto="meals" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">← Back</button><button data-goto="stock" class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">Next: What's already at home →</button></div>
     </section>
 
-    <!-- 5. Summary -->
+    <!-- 5. At home: what's already in the house comes off the shopping list -->
+    <section data-panel="stock" id="panel-stock" role="tabpanel" aria-labelledby="tab-stock" class="space-y-6 hidden">
+      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">5. Already at Home</h2>
+            <p class="text-xs text-slate-400 mt-1">Check your cupboards, fridge and freezer. Type how much of each you've got (a count for things like eggs and apples, raw grams for the rest) and it comes off the shopping list. <b>All</b> means you've got enough.</p>
+          </div>
+          <button data-action="clear-stock" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">Clear</button>
+        </div>
+        <div id="stock-summary"></div>
+      </div>
+      <div id="stock-list" class="space-y-4"></div>
+      <div class="flex gap-2"><button data-goto="plan" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">← Back</button><button data-goto="summary" class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">Finish: See my lists →</button></div>
+    </section>
+
+    <!-- 6. Summary -->
     <section data-panel="summary" id="panel-summary" role="tabpanel" aria-labelledby="tab-summary" class="space-y-6 hidden">
       <div class="no-print grid grid-cols-2 sm:flex gap-2">
         <button data-action="copy-shopping" class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-100 font-semibold py-2 px-3 rounded-lg transition-colors">Copy shopping list</button>
@@ -250,7 +267,7 @@
       </div>
       <div id="share-out" class="no-print"></div>
       <div id="summary-content" class="space-y-6"></div>
-      <button data-goto="plan" class="no-print bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">← Back to your week</button>
+      <button data-goto="stock" class="no-print bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">← Back</button>
     </section>
 
 
@@ -336,19 +353,6 @@
           <p class="text-xs text-slate-400">Labels usually only show sat fat, sugars and sodium. For the rest, look the food up in the Australian Food Composition Database or UK CoFID. <b class="text-slate-300">Leave a box blank if you don't know</b> — blank means unknown, not zero.</p>
           <div id="ff-micros" class="space-y-4"></div>
         </details>
-
-        <!-- 4. Buying -->
-        <section class="space-y-2" aria-labelledby="ff-buy-title">
-          <h3 id="ff-buy-title" class="text-sm font-bold uppercase tracking-wider text-slate-300">Buying</h3>
-          <div class="sm:w-56">
-            <label for="ff-grams" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">How much to buy this week</label>
-            <div class="relative">
-              <input id="ff-grams" type="number" step="any" min="0" required placeholder="e.g. 1000" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600 pr-10">
-              <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">g</span>
-            </div>
-          </div>
-          <p id="ff-grams-hint" class="text-xs text-slate-400">The total for the week, e.g. a 1kg bag = 1000. Once your meals use this food you can switch it to 🔓 From plan and the week plan works the amount out.</p>
-        </section>
       </div>
 
       <!-- Footer stays put: save is always in reach -->
@@ -566,6 +570,7 @@
   <script src="js/render-core.js"></script>
   <script src="js/picker.js"></script>
   <script src="js/render-pantry.js"></script>
+  <script src="js/render-stock.js"></script>
   <script src="js/render-meals.js"></script>
   <script src="js/render-week.js"></script>
   <script src="js/storage.js"></script>

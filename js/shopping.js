@@ -36,8 +36,10 @@ function buyInfo(f) {
   return { units, packs, cost: packs && m.pricePerPack != null ? packs * m.pricePerPack : null, text: parts.join(' · ') };
 }
 
+// What's left to buy after what's at home (both shops)
 function shopCost() {
-  const bought = state.foods.filter(f => f.grams > 0);
+  const { main, topUp } = shopLists();
+  const bought = [...main, ...topUp];
   const priced = bought.map(buyInfo).filter(b => b.cost != null);
   return { total: priced.reduce((s, b) => s + b.cost, 0), priced: priced.length, items: bought.length };
 }

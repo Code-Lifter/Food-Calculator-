@@ -39,6 +39,42 @@ function renderRules() {
     </div>`;
 }
 
+// The macro sliders: lean each macro up to 20% above or below its target. Auto-fill, ⚖️ and 🎲 aim there.
+const LEAN_MACROS = [['protein', 'Protein', 4], ['carbs', 'Carbs', 4], ['fat', 'Fat', 9]];
+const leanWords = v => (v === 0 ? 'on target' : `${v > 0 ? '+' : '−'}${Math.round(Math.abs(v) * 100)}%`);
+function leanKcal() {
+  return LEAN_MACROS.reduce((s, [k, , kcal]) => s + kcal * (state.daily[k] || 0) * (state.macroLean[k] || 0), 0);
+}
+function leanNote() {
+  const extra = Math.round(leanKcal());
+  if (Math.abs(extra) < 40) return 'Calories stay on target, so leaning one macro up works best with another leaning down.';
+  return `These leans add up to ${extra > 0 ? '+' : '−'}${Math.abs(extra)} kcal a day. Calories still win, so the planner will land somewhere between: ${extra > 0 ? 'lean something else down' : 'lean something else up'} to get closer.`;
+}
+function renderMacroLean() {
+  const any = LEAN_MACROS.some(([k]) => state.macroLean[k]);
+  $('macro-lean').innerHTML = `
+    <div class="space-y-2">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h3 class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Macro balance <span class="normal-case font-normal">· aim each macro up to 20% above or below its target</span></h3>
+        ${any ? '<button data-action="reset-lean" class="text-[11px] text-slate-400 hover:text-slate-200 underline">Reset</button>' : ''}
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        ${LEAN_MACROS.map(([k, label]) => {
+          const v = state.macroLean[k] || 0, base = state.daily[k] || 0;
+          return `
+            <label class="block p-2.5 rounded-lg border border-slate-700 bg-slate-900/40">
+              <span class="flex items-baseline justify-between gap-2 text-[11px] font-semibold text-slate-300/80 uppercase tracking-wider">${label}
+                <span class="normal-case text-xs font-bold ${v ? 'text-brand' : 'text-slate-300'}" data-lean-label="${k}">${leanWords(v)}${base ? ` · ${Math.round(base * (1 + v))} g` : ''}</span></span>
+              <input type="range" min="-20" max="20" step="5" value="${Math.round(v * 100)}" data-action="set-lean" data-lean="${k}"
+                aria-label="${label}: aim below or above target" aria-valuetext="${leanWords(v)}" class="w-full mt-1 accent-emerald-400 cursor-pointer">
+              <span class="flex justify-between text-[10px] text-slate-500"><span>less</span><span>target</span><span>more</span></span>
+            </label>`;
+        }).join('')}
+      </div>
+      <p class="text-[11px] text-slate-400" id="lean-note">${leanNote()}</p>
+    </div>`;
+}
+
 function renderPlan() {
   $('plan-left').innerHTML = leftCards(planTotals(), weekly());
   const mealNums = [];
@@ -50,12 +86,11 @@ function renderPlan() {
     </div>
     <span class="text-slate-400">${mainSlots().map(([, label]) => label).join(', ')} · plus 0–${MAX_SNACKS} snacks</span>`;
   renderRules();
+  renderMacroLean();
 
   const target = state.daily.cals;
   const selectCls = 'w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-brand';
 
-  const used = plannedGrams();
-  const short = state.foods.filter(f => f.locked && (used[f.id] || 0) > f.grams + 1e-9);
   const counts = mealCounts();
   const plannedMissing = missingFoods(state.meals.filter(m => counts[m.id]));
   const { boxes } = storagePlan();
@@ -69,16 +104,11 @@ function renderPlan() {
       </div>` : '';
   const missingNote = Object.keys(plannedMissing).length ? `
       <div class="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 space-y-1 mb-2">
-        <div>Planned meals use foods that aren't in your basket, so they won't be on your shopping list: ${Object.values(plannedMissing).map(s => `<b>${esc(s.name)}</b>`).join(', ')}.</div>
-        <button data-action="re-add-missing" class="underline font-semibold">Put them back in the basket</button>
+        <div>Planned meals use foods that aren't in your pantry, so they won't be on your shopping list: ${Object.values(plannedMissing).map(s => `<b>${esc(s.name)}</b>`).join(', ')}.</div>
+        <button data-action="re-add-missing" class="underline font-semibold">Put them back in the pantry</button>
       </div>` : '';
   $('plan-warnings').innerHTML = missingNote + storageNote + (!state.meals.length
-    ? emptyNote('No meals yet — create your own meals in step 3.')
-    : short.length ? `
-      <div class="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 space-y-1">
-        <div>Your plan uses more than the fixed amount of: ${short.map(f => `<b>${esc(f.name)}</b> (${fmt(used[f.id])}g vs ${fmt(f.grams)}g)`).join(', ')}.</div>
-        <button data-action="unlock-short" class="underline font-semibold">Let the plan set these</button>
-      </div>` : '');
+    ? emptyNote('No meals yet — create your own meals in step 3.') : '');
 
   // Phones see one day at a time; md+ sees the whole week
   const view = state.viewDay;
@@ -140,7 +170,9 @@ function renderPlan() {
               ${picker(d, slot, slot, day[slot], search ? `pick a ${label.toLowerCase()}` : '— none —')}
               ${day[slot] ? `<input type="number" min="0.25" max="3" step="0.05" value="${size}" data-action="set-size" data-day="${d}" data-slot="${slot}"
                 aria-label="${label} portions" title="Portions eaten"
-                class="w-16 shrink-0 bg-slate-900 border border-slate-700 rounded-lg px-1 py-1.5 text-sm text-slate-100 text-center focus:outline-none focus:border-brand">` : ''}
+                class="w-16 shrink-0 bg-slate-900 border border-slate-700 rounded-lg px-1 py-1.5 text-sm text-slate-100 text-center focus:outline-none focus:border-brand">
+              <button data-action="reroll" data-day="${d}" data-slot="${slot}" title="Re-roll: swap in a different ${label.toLowerCase()} that fits the day" aria-label="Re-roll ${DAYS[d]} ${label}"
+                class="shrink-0 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-lg px-2 py-1.5 text-sm transition-colors">🎲</button>` : ''}
             </div>
             ${(() => {
               const m = mealById(day[slot]);
@@ -164,6 +196,7 @@ function renderPlan() {
               const b = boxAt.get(`${d}|snack${s}`);
               const stale = b && b.place === 'over';
               return m ? `<span class="inline-flex items-center gap-1 text-xs bg-slate-700 border ${stale ? 'border-amber-500' : 'border-slate-600'} rounded-full pl-2 pr-1 py-0.5"${stale ? ` title="${b.after} days after prep — doesn't freeze"` : ''}>${stale ? '⚠ ' : ''}${esc(m.name)}
+                <button data-action="reroll" data-day="${d}" data-slot="snack" data-idx="${s}" class="hover:scale-110 transition-transform px-0.5" title="Re-roll this snack" aria-label="Re-roll snack ${esc(m.name)}">🎲</button>
                 <button data-action="remove-snack" data-day="${d}" data-idx="${s}" class="text-slate-400 hover:text-rose-400 px-1" aria-label="Remove snack">✕</button></span>` : '';
             }).join('')}
           </div>

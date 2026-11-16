@@ -20,6 +20,15 @@ function applyState(data) {
   migrateStats(state.stats, data.stats || {});
   state.energyUnit = ['kJ', 'kcal'].includes(data.energyUnit) ? data.energyUnit : base.energyUnit;
   state.currency = CURRENCIES[data.currency] ? data.currency : base.currency;
+  // Sessions saved before step 5 have nothing at home
+  state.stock = Object.fromEntries(Object.entries(data.stock && typeof data.stock === 'object' ? data.stock : {})
+    .map(([id, g]) => [id, Math.round(Number(g))]).filter(([, g]) => g > 0));
+  // Sessions saved before the macro sliders aim straight at the targets
+  const lean = data.macroLean || {};
+  state.macroLean = Object.fromEntries(['protein', 'carbs', 'fat'].map(k => {
+    const v = Number(lean[k]);
+    return [k, Number.isFinite(v) ? Math.min(0.2, Math.max(-0.2, Math.round(v * 20) / 20)) : 0];
+  }));
   // Sessions saved before the meals-a-day setting had three
   const mpd = Number(data.mealsPerDay);
   state.mealsPerDay = Number.isInteger(mpd) && mpd >= MEALS_MIN && mpd <= MEALS_MAX ? mpd : base.mealsPerDay;
@@ -31,7 +40,7 @@ function applyState(data) {
   const seen = new Set();
   state.foods = (Array.isArray(data.foods) ? data.foods : [])
     .filter(f => f && f.id != null && !seen.has(f.id) && seen.add(f.id))
-    .map(f => normaliseFood({ ...f, locked: f.locked ?? true }));
+    .map(f => normaliseFood({ ...f }));
   // Meals saved before batch cooking were a single portion; before storage planning they get the
   // defaults (3 days, doesn't freeze)
   state.meals = (Array.isArray(data.meals) ? data.meals : []).map(m => {
@@ -105,6 +114,8 @@ function normaliseFood(f) {
   delete micros.fibre;
   if (Object.keys(micros).length) f.micros = micros; else delete f.micros;
   f.grams = num(f.grams) ?? 0;
+  // Old saves had 🔒 fixed buy amounts; amounts now always come from the week plan
+  delete f.locked;
   return f;
 }
 // Sessions saved before the job/training split and goal speeds: the old activity level maps to the
@@ -179,10 +190,10 @@ function missingFoods(meals = state.meals) {
   return missing;
 }
 
-// Puts removed foods back in the basket under their old id, so meals link up again
+// Puts removed foods back in the pantry under their old id, so meals link up again
 function reAddFoods(missing) {
   Object.entries(missing).forEach(([id, snap]) => {
-    const food = { id, name: snap.name, grams: 0, locked: false };
+    const food = { id, name: snap.name, grams: 0 };
     MACROS.forEach(([k]) => { food[k] = snap[k] || 0; });
     if (snap.fibre != null) food.fibre = snap.fibre;
     if (snap.micros) food.micros = { ...snap.micros };
@@ -222,7 +233,7 @@ function ingredientText(i) {
     ? `${fmt(shownGrams(f, rangeOf(i)[0]))}–${fmt(shownGrams(f, rangeOf(i)[1]))}g`
     : gramsText(f, i.grams);
   const tag = mode === 'ratio' ? '' : ` <span class="text-slate-500">${ITEM_MODES[mode].icon}${mode === 'fixed' ? ' each' : ''}</span>`;
-  return `${esc(f.name)} ${amount}${tag}${!i.foodId || foodById(i.foodId) ? '' : ' <span class="text-amber-400">(not in basket)</span>'}`;
+  return `${esc(f.name)} ${amount}${tag}${!i.foodId || foodById(i.foodId) ? '' : ' <span class="text-amber-400">(not in pantry)</span>'}`;
 }
 
 function totalsOf(items) {
@@ -267,4 +278,3 @@ const suppsOn = d => d == null ? [] : state.supplements.filter(x => x.days.inclu
 const suppTotals = d => suppsOn(d).reduce((t, x) => ({ cals: t.cals + x.kcal, protein: t.protein + x.protein, carbs: t.carbs + x.carbs, fat: t.fat + x.fat }), zero());
 const dayTotals = (day, d) => sum(dayPortions(day).map(p => slotTotals(p.meal, p.size, p.flex)).reduce(sum, zero()), suppTotals(d));
 const planTotals = () => state.plan.map(dayTotals).reduce(sum, zero());
-const basketTotals = () => totalsOf(state.foods.map(f => ({ foodId: f.id, grams: f.grams })));

@@ -34,13 +34,38 @@ document.querySelectorAll('[data-target]').forEach(el => {
   });
 });
 
-// Meal builder: picks from the foods in your basket
+// Step 5: typing what's at home saves as you go and redraws only that row (keeps the cursor)
+document.addEventListener('input', e => {
+  const el = e.target.closest('[data-stock]');
+  if (!el) return;
+  const f = stockFood(el.dataset.stock);
+  if (!f) return;
+  const g = Math.round(parseFloat(el.value) * (Number(el.dataset.unitGrams) || 1));
+  if (g > 0) state.stock[f.id] = g; else delete state.stock[f.id];
+  recordHistory(`stock-${f.id}`);
+  save();
+  renderHistory();
+  renderStatus();
+  updateStockRow(f.id);
+});
+
+// Macro sliders: the label follows the thumb while dragging; the value is saved on release (change)
+document.addEventListener('input', e => {
+  const el = e.target.closest('[data-action="set-lean"]');
+  if (!el) return;
+  const k = el.dataset.lean, v = (parseFloat(el.value) || 0) / 100, base = state.daily[k] || 0;
+  const label = document.querySelector(`[data-lean-label="${k}"]`);
+  if (label) label.textContent = `${leanWords(v)}${base ? ` · ${Math.round(base * (1 + v))} g` : ''}`;
+  el.setAttribute('aria-valuetext', leanWords(v));
+});
+
+// Meal builder: picks from the foods in your pantry
 searchPicker({
   input: $('mb-search'),
   list: $('mb-results'),
   items: () => {
     return [
-      ...state.foods.map(f => ({ name: f.name, cals: f.cals, tag: 'Basket', value: `food:${f.id}` }))
+      ...state.foods.map(f => ({ name: f.name, cals: f.cals, tag: 'Pantry', value: `food:${f.id}` }))
     ];
   },
   emptyText: 'No matches — add a custom food in the Single Food Pantry first.',
@@ -97,7 +122,9 @@ document.addEventListener('keydown', e => {
   else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); }
 });
 
-['ff-grams', 'ff-cals', 'ff-protein', 'ff-carbs', 'ff-fat', 'ff-fibre'].forEach(id => $(id).addEventListener('input', renderFormPreview));
+['ff-cals', 'ff-protein', 'ff-carbs', 'ff-fat', 'ff-fibre'].forEach(id => $(id).addEventListener('input', renderFormPreview));
+// Pantry search: view-only, filters the list as you type
+$('pantry-search').addEventListener('input', e => { pantryQuery = e.target.value; renderShopping(); });
 $('ff-micros').addEventListener('input', renderMicroCount);
 
 $('food-form').addEventListener('submit', e => {
@@ -105,7 +132,6 @@ $('food-form').addEventListener('submit', e => {
   const per = formPer100();
   const values = { name: $('ff-name').value.trim(), category: $('ff-category').value };
   MACROS.forEach(([k]) => { values[k] = Math.round(per[k] * 10) / 10; });
-  const grams = Math.max(0, parseFloat($('ff-grams').value) || 0);
   const micros = readMicros('ff');
   const f = editingFoodId && foodById(editingFoodId);
   $('food-modal').close();
@@ -114,11 +140,10 @@ $('food-form').addEventListener('submit', e => {
     Object.assign(f, values);
     if (per.fibre) f.fibre = per.fibre; else delete f.fibre;
     if (Object.keys(micros).length) f.micros = micros; else delete f.micros;
-    if (grams !== f.grams) { f.grams = grams; f.locked = true; } // a new amount fixes it, as before
     commit();
     toast(`Updated ${f.name}`);
   } else {
-    const food = { ...values, grams };
+    const food = { ...values };
     if (per.fibre) food.fibre = per.fibre;
     if (Object.keys(micros).length) food.micros = micros;
     addFood(food);

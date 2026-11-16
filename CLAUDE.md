@@ -1,9 +1,9 @@
 # Weekly Meal Planner
 
-Open `meal-planner.html` in a browser to run the app. It works straight from disk (`file://`): there is no build step, package.json or server.
+Open `index.html` in a browser to run the app. It works straight from disk (`file://`): there is no build step, package.json or server.
 
 ```
-meal-planner.html   page markup: tabs, panels, dialogs; loads everything below
+index.html          page markup: tabs, panels, dialogs; loads everything below
 css/styles.css      the few non-Tailwind styles (number inputs, print, box labels)
 js/tailwind-config.js
 js/*.js             the app, split by job (26 files, see "Code map")
@@ -12,16 +12,17 @@ js/*.js             the app, split by job (26 files, see "Code map")
 ## Stack
 - Tailwind CSS from the CDN (`cdn.tailwindcss.com`), configured in `js/tailwind-config.js`. The brand colour is `brand` (#34d399). The theme is dark slate: `bg-slate-800` cards, `border-slate-700`.
 - Vanilla JS in plain `<script src>` files (**not** ES modules, because modules don't load over `file://`). There is no framework; views are rebuilt with template strings into `innerHTML`.
-- All files share one global scope, so a top-level `const`/`function` in one file is usable in every other file. **Load order matters** (it's the `<script>` list at the bottom of `meal-planner.html`): code that *runs* while a file loads, such as a `const` initialiser or a top-level statement, can only use what earlier files define. Functions can call anything, because they only run after `init.js`. New files go in that list; `init.js` stays last.
+- All files share one global scope, so a top-level `const`/`function` in one file is usable in every other file. **Load order matters** (it's the `<script>` list at the bottom of `index.html`): code that *runs* while a file loads, such as a `const` initialiser or a top-level statement, can only use what earlier files define. Functions can call anything, because they only run after `init.js`. New files go in that list; `init.js` stays last.
 - Data is saved in `localStorage` under `STORAGE_KEY = 'weekly_meal_planner_v2'`. Keep the key stable, or saved data is lost.
 
-## The five steps (tabs)
+## The six steps (tabs)
 | Tab (`data-tab`) | Label | Renderer |
 |---|---|---|
 | `target` | 🎯 Targets | stats → BMR → daily calories/macros |
-| `shopping` | 🥫 Single Food Pantry | `renderShopping()` — single ingredients, the basket, prices, ✏️ Edit, micronutrient chips |
+| `shopping` | 🥫 Single Food Pantry | `renderShopping()` — a searchable library of single foods (per 100g, micronutrient chips, pack/price, ✏️ Edit). No buy amounts here |
 | `meals` | 🍽️ Meals | `renderMeals()` — meal builder (🔗 ratio / 📌 fixed / ↕ range ingredients) |
 | `plan` | 📅 Week | `renderPlan()` — 7-day plan, auto-fill, ⚖️ fit portions |
+| `stock` | 🏠 At home | `renderStock()` — how much of each needed food is already in the house; comes off the shopping list |
 | `summary` | ✅ Ready | `renderSummary()` — shopping list, `storageCard()`, cooking plan, Day by day (each day shows `thawHtml()` — that night's freezer → fridge moves as ticks in `state.checked['thaw:<day eaten>|<mealId>']`), `microCard()` |
 
 The internal id `shopping` was kept when the tab was renamed to "Single Food Pantry". Don't rename the ids; share links and saved state use them.
@@ -36,19 +37,20 @@ The internal id `shopping` was kept when the tab was renamed to "Single Food Pan
 | `micros.js` | micronutrient totals, day/week averages, `microTargets`, `ulWarnings` |
 | `rules.js` | food tags, weekly rules, `solveWeek`/`planWithRules` |
 | `shopping.js` | `meta`, packs/prices, raw↔cooked, status colours, `plural`, `emptyNote` |
-| `render-core.js` | status bar, tabs, step 1 render, prep-style switch |
+| `render-core.js` | status bar (incl. `sugarCell`), tabs, step 1 render, prep-style switch |
 | `picker.js` | `searchPicker` (type-to-filter food/meal picker) |
 | `render-pantry.js` | step 2: `renderShopping`, `foodMicrosHtml` |
 | `render-meals.js` | step 3: meal builder + meal cards (`renderMeals`) |
-| `render-week.js` | step 4: rules card + `renderPlan` |
+| `render-stock.js` | step 5, At home: `renderStock` — what's already in the house per food (`state.stock`, grams; counted foods typed as a count via `countUnit`). Typing updates only its row (`updateStockRow`) so the cursor stays; `shopLists()` subtracts it (main shop first, then the top-up). Cleared by Start a New Week; left out of share links |
+| `render-week.js` | step 4: rules card, `renderMacroLean` (Macro balance sliders → `state.macroLean`) + `renderPlan` |
 | `storage.js` | `cookingSessions`, `portionParts`, `isBatchMeal`, `storagePlan`, `eveningReminders`, `thawHtml`, `noThawNote` |
-| `render-ready.js` | step 5: labels, storage/cooking/today/cost cards, `renderSummary` |
+| `render-ready.js` | step 6: labels, storage/cooking/today/cost cards, `renderSummary` |
 | `micro-display.js` | `microTone`, `microRows`, `microCard`, per-day nutrients |
 | `food-form.js` | micronutrient inputs, `openFoodModal` |
 | `supplements.js` | supplement maths, shopping lines, modal, `runMicroTests` |
 | `app.js` | `renderAll`, `showTab`, undo/redo, `commit` |
 | `edit.js` | `calculateTargets`, `addFood`, `removeFoods` |
-| `autofill.js` | `autoFill`, `fitMains`, `balanceDay` (portion fitting) |
+| `autofill.js` | `fitMains` (solves portion sizes + ↕ amounts for a day: linear model, coordinate descent, then rounding; calories weigh 30×; each macro aims at its target × (1 + `state.macroLean[k]`), the Week tab's Macro balance sliders, ±20%; outside ±`MACRO_RANGE` of the plain target a steep `RANGE_WEIGHT` cost pulls it back; protein over its aim counts lightly unless leaned down; `fitScore` uses `leanedDaily()`), `dayMiss`, `autoFill` → `improveWeek` (tries swapping meals/snacks, and adding up to 2 snacks, where that fits a day better), `rerollSlot` (🎲) |
 | `text-export.js` | `copyText`, `shopLists`, `shoppingText`, `mealPlanText` |
 | `share.js` | share links in the URL hash |
 | `json-boxes.js` | JSON import/export boxes, modal openers |
@@ -67,7 +69,7 @@ The internal id `shopping` was kept when the tab was renamed to "Single Food Pan
 - Foods store nutrition **per 100 g**: `cals` (always kcal internally; kJ is display only), `protein`, `carbs`, `fat`, `fibre`, and optional `micros` ({ key: number }).
 - A missing micronutrient key means **unknown, not zero**. `cleanMicros()` keeps only real numbers. The nutrient list is `NUTRIENTS`, grouped by `NUTRIENT_GROUPS`.
 - Batch meals (`isBatchMeal`) are cooked on a prep day and boxed: either `servings > 1` with 🔗 ratio ingredients (only the ratio part goes in the box; extras are added on the day), or `prepAhead: true` (🍱 a one-portion recipe made for the whole week; the whole portion goes in the box). `storagePlan()` puts each box in the fridge, the freezer (after `fridgeDays`, if `freezes`) or flags it as 'over'.
-- `locked: true` means 🔒 a fixed amount to buy; unlocked means 🔓 the amount is sized from the week plan.
+- The pantry is a library: foods are never auto-removed, and `f.grams` (what to buy) is always derived from the week plan by `syncDerivedGrams()` on every `commit`. There is no fixed/🔒 amount any more; `normaliseFood` deletes the old `locked` field from saves.
 - Weights are raw. Cooked mode converts using cooked factors (rice ×2.9, pasta ×2.2, chicken ×0.73).
 
 ## Micronutrient colours
@@ -75,6 +77,7 @@ The internal id `shopping` was kept when the tab was renamed to "Single Food Pan
 - Nutrients with a target: green at 90% of the target or more, yellow at 50–90%, red under 50%.
 - Sodium: green ≤ 2,000 mg, yellow ≤ 2,300 mg, red above.
 - Saturated fat: green ≤ 10% of energy, yellow ≤ 12%, red above.
+- Sugars (total, as on labels): green ≤ 18% of energy (`SUGAR_PCT`, the UK/EU 90 g-on-2,000-kcal reference intake), yellow ≤ 22.5%, red above. Also the status bar's Sugar / day tile (`sugarCell`, grey "?" when under 70% of food has a sugars value).
 - Above the upper level (`UL`, per day) is always red.
 
 Targets are the NHMRC (Australia/NZ) Nutrient Reference Values, picked by sex and age band in `microTargets()`. The Ready-tab card has a Daily average / Week total pill (`microView`). The week total multiplies the amounts and the targets by the number of planned days.
@@ -88,4 +91,4 @@ Targets are the NHMRC (Australia/NZ) Nutrient Reference Values, picked by sex an
 - Comments explain *why*. Keep the existing tone: short, plain-English help text under controls.
 
 ## Testing
-There's no test suite. Open `meal-planner.html?test` to run the built-in maths checks (`runTargetTests`, `runMicroTests`; results go to the console). To check a change, load the page with Playwright (headless Chromium). Seed `localStorage['weekly_meal_planner_v2']` with a session JSON (`test-fixed.json` is a good one), then click through each tab and check for `pageerror` events; a `ReferenceError` on load usually means a file is in the wrong order. Stub the Tailwind CDN request if you're offline.
+There's no test suite. Open `index.html?test` to run the built-in maths checks (`runTargetTests`, `runMicroTests`; results go to the console). To check a change, load the page with Playwright (headless Chromium). Seed `localStorage['weekly_meal_planner_v2']` with a session JSON (`test-fixed.json` is a good one), then click through each tab and check for `pageerror` events; a `ReferenceError` on load usually means a file is in the wrong order. Stub the Tailwind CDN request if you're offline.

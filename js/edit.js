@@ -32,16 +32,16 @@ function showStatsNotes(notes) {
   $('stats-note').classList.toggle('hidden', !notes.length);
 }
 
+// Adds a food to the pantry library. A food with the same name is updated instead of doubled up.
+// Returns false (and changes nothing) when there's nothing to add.
 function addFood(food) {
   const existing = state.foods.find(f => f.name.toLowerCase() === food.name.toLowerCase());
   if (existing) {
-    existing.grams += food.grams;
-    existing.locked = true;
-    if (food.micros) existing.micros = { ...existing.micros, ...food.micros };
-    toast(`${food.name}: now ${fmt(existing.grams)}g`);
+    Object.assign(existing, { ...food, id: existing.id, grams: existing.grams });
+    toast(`${food.name} was already in your pantry — updated it`);
   } else {
-    state.foods.push({ id: idForNewFood(food.name), ...food, locked: true });
-    toast(`Added ${food.name}`);
+    state.foods.push({ id: idForNewFood(food.name), ...food, grams: 0 });
+    toast(`Added ${food.name} to your pantry`);
   }
   commit();
 }

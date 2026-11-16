@@ -9,10 +9,11 @@ const MICRO_TONES = {
 };
 // Health range → colour. Targets: green at 90%+ of the target, yellow at 50–90%, red under 50% or above the
 // upper level. Sodium: green under 2,000 mg, yellow to 2,300 mg, red above. Sat fat: green under 10% of energy,
-// yellow to 12%, red above. Sugars have no target and just show the amount.
+// yellow to 12%, red above. Sugars: green up to 18% of energy, yellow to 22.5%, red above.
 const SODIUM_HIGH = 2300, SAT_FAT_HIGH_PCT = 12;
 const microTone = (r, k) => {
   if (k === 'sodium') return r <= 1 ? MICRO_TONES.good : r <= SODIUM_HIGH / SODIUM_LIMIT ? MICRO_TONES.low : MICRO_TONES.bad;
+  if (k === 'sugars') return r <= 1 ? MICRO_TONES.good : r <= SUGAR_HIGH_PCT / SUGAR_PCT ? MICRO_TONES.low : MICRO_TONES.bad;
   if (k === 'satFat') return r <= 1 ? MICRO_TONES.good : r <= SAT_FAT_HIGH_PCT / SAT_FAT_PCT ? MICRO_TONES.low : MICRO_TONES.bad;
   return r >= 0.9 ? MICRO_TONES.good : r >= 0.5 ? MICRO_TONES.low : MICRO_TONES.bad;
 };
@@ -35,6 +36,12 @@ function microRows(m, kcal, days = 1) {
         row.base = kcal * SAT_FAT_PCT / 100 / 9; // grams that make 10% of the energy
         row.tone = microTone(total / row.base, k);
         row.text += ` · ${fmt1(total * 9 / kcal * 100)}% of energy (guide: under ${SAT_FAT_PCT}%)`;
+      }
+    } else if (k === 'sugars') {
+      if (kcal > 0) {
+        row.base = kcal * SUGAR_PCT / 100 / 4; // grams that make 18% of the energy
+        row.tone = microTone(total / row.base, k);
+        row.text += ` · ${fmt1(total * 4 / kcal * 100)}% of energy (guide: under ${fmt(row.base)} g)`;
       }
     } else if (targets[k]) {
       row.base = targets[k] * days;

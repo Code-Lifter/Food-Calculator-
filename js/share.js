@@ -31,14 +31,22 @@ async function decodeShare(code) {
 function planPayload() {
   const s = JSON.parse(snapshot());
   delete s.checked;
+  delete s.stock; // what's in your cupboard isn't theirs
   const ids = new Set(s.foods.map(f => f.id));
   s.meals.forEach(m => m.items.forEach(i => { if (ids.has(i.foodId)) delete i.snap; }));
   return { v: 1, kind: 'plan', state: s };
 }
 const shopPayload = () => ({
   v: 1, kind: 'shop',
-  items: state.foods.filter(f => f.grams > 0).map(f => [f.name, Math.round(f.grams), meta(f).category, ...MACROS.map(([k]) => f[k] || 0)])
+  items: shopItems().map(f => [f.name, Math.round(f.grams), meta(f).category, ...MACROS.map(([k]) => f[k] || 0)])
 });
+// Main shop and top-up together, one row per food
+function shopItems() {
+  const { main, topUp } = shopLists();
+  const byId = new Map();
+  [...main, ...topUp].forEach(f => { const was = byId.get(f.id); byId.set(f.id, was ? { ...was, grams: was.grams + f.grams } : f); });
+  return [...byId.values()];
+}
 
 async function shareLink() {
   const base = location.href.split('#')[0];
@@ -91,7 +99,7 @@ function renderShareBanner() {
     $('share-banner').innerHTML = `
       <div class="bg-slate-800 p-5 rounded-xl border border-emerald-700/60 shadow-md space-y-3">
         <h2 class="text-lg font-bold text-slate-100">📩 Someone shared a meal plan</h2>
-        <p class="text-sm text-slate-300">${plural((st.meals || []).length, 'meal')} and ${plural(st.foods.length, 'food')}. Loading it replaces your current targets, meals, basket and week — you can Undo straight after.</p>
+        <p class="text-sm text-slate-300">${plural((st.meals || []).length, 'meal')} and ${plural(st.foods.length, 'food')}. Loading it replaces your current targets, meals, pantry and week — you can Undo straight after.</p>
         ${actions('load-share', 'Load this plan')}
       </div>`;
     return;
@@ -107,6 +115,6 @@ function renderShareBanner() {
             ${list.map(f => { const b = buyInfo(f); return `<li class="py-1.5"><label class="flex items-center gap-3"><input type="checkbox" class="w-5 h-5 accent-emerald-400 shrink-0"><span><b>${esc(f.name)}</b> — ${b.text ? `${b.text} <span class="text-xs text-slate-400">(${fmt(f.grams)}g)</span>` : `${fmt(f.grams)}g`}</span></label></li>`; }).join('')}
           </ul>
         </div>`).join('')}
-      ${actions('add-share', 'Add to my basket')}
+      ${actions('add-share', 'Add these foods to my pantry')}
     </div>`;
 }

@@ -52,14 +52,10 @@ function openFoodModal(f = null, focus = null) {
   if (f) {
     $('ff-name').value = f.name;
     $('ff-category').value = meta(f).category;
-    $('ff-grams').value = f.grams;
     $('ff-cals').value = Math.round((state.energyUnit === 'kJ' ? f.cals * KJ_PER_KCAL : f.cals) * 10) / 10;
     ['protein', 'carbs', 'fat', 'fibre'].forEach(k => { $(`ff-${k}`).value = f[k] != null ? f[k] : ''; });
   }
   $('ff-more').open = true;
-  $('ff-grams-hint').innerHTML = f && !f.locked
-    ? '🔓 <b class="text-slate-300">From plan:</b> this is worked out from your week plan. Type a new amount to fix it (🔒).'
-    : 'The total for the week, e.g. a 1kg bag = 1000. Once your meals use this food you can switch it to 🔓 From plan and the week plan works the amount out.';
   renderMicroCount();
   renderFormPreview();
   $('food-modal').showModal();

@@ -151,14 +151,12 @@ function shopListHtml(foods, suffix, used) {
       <ul class="divide-y divide-slate-700/60">
         ${list.map(f => {
           const key = f.id + suffix;
-          const short = !suffix && f.locked && (used[f.id] || 0) > f.grams + 1e-9;
           const b = buyInfo(f);
           return `
           <li class="flex items-center gap-3 py-2">
             <input type="checkbox" data-action="toggle-check" data-id="${key}" ${state.checked[key] ? 'checked' : ''} class="w-5 h-5 accent-emerald-400 shrink-0" aria-label="Got ${esc(f.name)}">
             <span class="flex-1 ${state.checked[key] ? 'line-through text-slate-400' : 'text-slate-100'}">
-              <b>${esc(f.name)}</b> — ${b.text ? `<b>${b.text}</b> <span class="text-xs text-slate-400">(${fmt(f.grams)}g)</span>` : `${fmt(f.grams)}g`}
-              ${short ? '<span class="text-xs text-amber-400"> (plan needs more)</span>' : ''}
+              <b>${esc(f.name)}</b> — ${b.text ? `<b>${b.text}</b> <span class="text-xs text-slate-400">(${fmt(f.grams)}g)</span>` : `${fmt(f.grams)}g`}${f.have > 0 ? ` <span class="text-xs text-sky-300">· 🏠 ${countUnit(f) ? plural(Math.round(f.have / countUnit(f).grams * 10) / 10, countUnit(f).word) : fmtWeight(f.have)} at home</span>` : ''}
             </span>
             <span class="text-xs text-slate-400 shrink-0 text-right">${b.cost != null ? `${money(b.cost)}<br>` : ''}${fmt(f.cals * f.grams / 100)} kcal</span>
           </li>`;
@@ -167,8 +165,15 @@ function shopListHtml(foods, suffix, used) {
     </div>`).join('');
 }
 
+// Foods fully covered by what's at home, listed under the shopping list
+function atHomeNote() {
+  const got = state.foods.filter(f => f.grams > 0 && haveOf(f) >= f.grams);
+  if (!got.length) return '';
+  return `<p class="text-xs text-slate-400 pt-2 border-t border-slate-700/60"><span class="text-sky-300 font-semibold">🏠 Already at home (${got.length}):</span> ${got.sort((a, b) => a.name.localeCompare(b.name)).map(f => esc(f.name)).join(', ')}. <button data-goto="stock" class="underline hover:text-slate-200">Change</button></p>`;
+}
+
 function renderSummary() {
-  const wt = weekly(), pt = planTotals(), bt = basketTotals();
+  const wt = weekly(), pt = planTotals();
   const { main, topUp } = shopLists();
   const { boxes } = storagePlan();
   const boxAt = boxesBySlot(boxes);
@@ -190,7 +195,6 @@ function renderSummary() {
           </thead>
           <tbody class="divide-y divide-slate-700/60">
             <tr><td class="text-left py-1.5 text-slate-400">Target</td>${MACROS.map(([k, s]) => `<td class="font-bold">${fmt(wt[k])}${s === 'g' ? 'g' : ''}</td>`).join('')}</tr>
-            <tr><td class="text-left py-1.5 text-slate-400">Shopping</td>${MACROS.map(([k, s]) => `<td class="font-bold ${statusColor(bt[k], wt[k])}">${statusMark(bt[k], wt[k])}${fmt(bt[k])}${s === 'g' ? 'g' : ''}</td>`).join('')}</tr>
             <tr><td class="text-left py-1.5 text-slate-400">Meal plan</td>${MACROS.map(([k, s]) => `<td class="font-bold ${statusColor(pt[k], wt[k])}">${statusMark(pt[k], wt[k])}${fmt(pt[k])}${s === 'g' ? 'g' : ''}</td>`).join('')}</tr>
           </tbody>
         </table>
@@ -209,6 +213,7 @@ function renderSummary() {
           <p class="text-xs text-slate-400">Short-life fresh food needed only for prep 2 or later fresh meals, so it's bought fresh.</p>
           ${shopListHtml(topUp, ':top', used)}
         </div>` : ''}
+      ${atHomeNote()}
       ${suppShopHtml()}
     </div>
 

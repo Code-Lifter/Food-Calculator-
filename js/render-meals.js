@@ -116,7 +116,7 @@ function renderMeals() {
         const p = perPortion[i.foodId];
         return `<div class="text-sm bg-slate-900/60 px-3 py-2 rounded-lg border border-slate-700/50 space-y-1.5">
           <div class="flex items-center justify-between gap-2">
-            <span class="min-w-0 truncate">${esc(f.name)}${foodById(i.foodId) ? '' : ' <span class="text-xs text-amber-400">not in basket</span>'}</span>
+            <span class="min-w-0 truncate">${esc(f.name)}${foodById(i.foodId) ? '' : ' <span class="text-xs text-amber-400">not in pantry</span>'}</span>
             <span class="flex items-center gap-3 shrink-0"><span class="text-xs text-slate-400">${p ? `${fmt(p.food.cals * p.grams / 100)} kcal${mode === 'range' ? ' at default' : ''}${servings > 1 ? ' / portion' : ''}` : ''}</span>
             <button data-action="remove-ingredient" data-idx="${idx}" class="text-slate-400 hover:text-rose-400" aria-label="Remove ${esc(f.name)}">✕</button></span>
           </div>
@@ -164,7 +164,7 @@ function renderMeals() {
                   ${portionCost(m) != null ? `<div class="text-[11px] text-slate-400">≈ ${money(portionCost(m))} per portion</div>` : ''}
                   ${richestLine(m)}
                   <div class="text-xs text-slate-400">${m.items.map(ingredientText).filter(Boolean).join(', ')}</div>
-                  ${Object.keys(missingFoods([m])).length ? `<button data-action="re-add-meal" data-id="${m.id}" class="text-[11px] text-amber-400 underline">Put missing foods back in the basket</button>` : ''}
+                  ${Object.keys(missingFoods([m])).length ? `<button data-action="re-add-meal" data-id="${m.id}" class="text-[11px] text-amber-400 underline">Put missing foods back in the pantry</button>` : ''}
                 </div>
                 <div class="flex gap-3 text-xs shrink-0">
                   <button data-action="edit-meal" data-id="${m.id}" class="text-slate-400 hover:text-brand">Edit</button>
