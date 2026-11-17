@@ -79,7 +79,7 @@ function renderPlan() {
   $('plan-left').innerHTML = leftCards(planTotals(), weekly());
   const mealNums = [];
   for (let n = MEALS_MIN; n <= MEALS_MAX; n++) mealNums.push(n);
-  $('meals-per-day').innerHTML = `<span class="font-semibold uppercase tracking-wide text-slate-400">Meals a day</span>
+  $('meals-per-day').innerHTML = `<span class="font-semibold uppercase tracking-wide text-slate-400">${twoPeople() ? `${esc(personName(state.person))}'s meals a day` : 'Meals a day'}</span>
     <div role="group" aria-label="Meals a day" class="flex bg-slate-900 rounded p-0.5 border border-slate-700 font-bold">
       ${mealNums.map(n => `<button data-action="set-meals-per-day" data-value="${n}" aria-pressed="${state.mealsPerDay === n}"
         class="px-2.5 py-1 rounded transition-colors ${state.mealsPerDay === n ? 'bg-emerald-500 text-slate-900' : 'text-slate-400 hover:text-white'}">${n}</button>`).join('')}
@@ -87,6 +87,8 @@ function renderPlan() {
     <span class="text-slate-400">${mainSlots().map(([, label]) => label).join(', ')} · plus 0–${MAX_SNACKS} snacks</span>`;
   renderRules();
   renderMacroLean();
+  $('plan-people-note').innerHTML = twoPeople() ? `
+    <p class="text-xs text-slate-300 bg-emerald-950/30 border border-emerald-800/50 rounded-lg px-3 py-2">👥 You're planning <b class="text-brand">${esc(personName(state.person))}</b>'s week. You both eat the same main meals unless you say otherwise: change one here and ${esc(personName(1 - state.person))}'s changes too, re-sized for them. Want different meals somewhere? Press <b>👥 Same</b> on that meal to make it <b>👤 Own</b>, then each pick your own. Meals a day, portion sizes, snacks and the macro balance are each person's own.</p>` : '';
 
   const target = state.daily.cals;
   const selectCls = 'w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-brand';
@@ -163,9 +165,20 @@ function renderPlan() {
         </div>
         ${mainSlots().map(([slot, label]) => {
           const size = sizeOf(day, slot);
+          // Two people: is this meal shared, each person's own, or one the other person doesn't have?
+          const other = twoPeople() ? 1 - state.person : -1;
+          const theyEat = other >= 0 && slotsOf(other).includes(slot);
+          const own = theyEat && isSplit(d, slot);
+          const theirs = own ? mealById(planOf(other)[d][slot]) : null;
+          const share = other < 0 ? '' : !theyEat
+            ? `<span class="normal-case font-normal text-slate-500">· just ${esc(personName(state.person))}</span>`
+            : `<button data-action="toggle-split" data-day="${d}" data-slot="${slot}" aria-pressed="${own}"
+                title="${own ? `Each of you has your own ${label.toLowerCase()} today. Press to go back to the same meal for both.` : `You both eat the same ${label.toLowerCase()}. Press to pick different meals for this one.`}"
+                class="normal-case font-semibold px-1.5 py-0.5 rounded border transition-colors ${own ? 'border-amber-600/70 bg-amber-950/40 text-amber-300 hover:bg-amber-900/40' : 'border-slate-700 text-slate-400 hover:text-slate-200'}">${own ? '👤 Own' : '👥 Same'}</button>`;
           return `
           <div>
-            <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">${label}${day[slot] && size !== 1 ? ` <span class="normal-case text-brand">· ${plural(size, 'portion')}</span>` : ''}</label>
+            <div class="flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"><span>${label}${day[slot] && size !== 1 ? ` <span class="normal-case text-brand">· ${plural(size, 'portion')}</span>` : ''}</span>${share}</div>
+            ${own ? `<div class="mb-1 text-[11px] text-amber-200/80">${esc(personName(other))} has: <b>${theirs ? esc(theirs.name) : 'nothing picked'}</b></div>` : ''}
             <div class="flex gap-2 items-center">
               ${picker(d, slot, slot, day[slot], search ? `pick a ${label.toLowerCase()}` : '— none —')}
               ${day[slot] ? `<input type="number" min="0.25" max="3" step="0.05" value="${size}" data-action="set-size" data-day="${d}" data-slot="${slot}"

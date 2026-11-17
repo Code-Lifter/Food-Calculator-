@@ -142,33 +142,43 @@ function renderMeals() {
     const meals = state.meals.filter(m => m.type === type);
     if (!meals.length) return '';
     return `
-      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-2">
-        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400">${label}${type === 'snack' ? 's' : ''}</h3>
-        <div class="grid lg:grid-cols-2 gap-2">
+      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-3">
+        <h3 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-300 pb-2 border-b border-slate-700/70">${label}${type === 'snack' ? 's' : ''} <span class="chip">${meals.length}</span></h3>
+        <div class="grid lg:grid-cols-2 gap-3">
         ${meals.map(m => {
           const mt = mealTotals(m);
           const pt = portionTotals(m);
           const s = servingsOf(m);
+          const cost = portionCost(m);
+          const chips = [
+            ...typesOf(m).slice(1).map(t => `<span class="chip chip-brand">also ${MEAL_TYPES[t]}</span>`),
+            counts[m.id] ? `<span class="chip chip-brand">${plural(counts[m.id], 'portion')} this week</span>` : '',
+            s > 1 ? `<span class="chip">Batch of ${s}</span>` : '',
+            m.prepAhead ? '<span class="chip chip-sky">🍱 Made ahead</span>' : '',
+            isBatchMeal(m) ? `<span class="chip ${freezesOf(m) ? 'chip-sky' : ''}">${freezesOf(m) ? '🧊 Freezes' : "Doesn't freeze"} · ${plural(fridgeDaysOf(m), 'day')} in fridge</span>` : '',
+            cost != null ? `<span class="chip">≈ ${money(cost)} a portion</span>` : ''
+          ].filter(Boolean).join('');
           return `
-            <div class="bg-slate-900 border border-slate-700 rounded-lg p-3">
-              <div class="flex items-start justify-between gap-2">
-                <div class="min-w-0 space-y-1">
-                  <div class="font-bold text-slate-200 text-sm">${esc(m.name)}${typesOf(m).length > 1 ? ` <span class="text-[11px] font-normal text-brand">· also ${typesOf(m).slice(1).map(t => MEAL_TYPES[t]).join(', ')}</span>` : ''}${counts[m.id] ? ` <span class="text-xs font-normal text-slate-400">· ${plural(counts[m.id], 'portion')} this week</span>` : ''}</div>
-                  <div class="text-[11px] text-slate-400 flex flex-wrap gap-x-4">
-                    <span class="text-emerald-400 font-bold">${fmt(pt.cals)} kcal${s > 1 ? ' / portion' : ''}</span>
-                    <span>P: ${fmt(pt.protein)}</span> <span>C: ${fmt(pt.carbs)}</span> <span>F: ${fmt(pt.fat)}</span>
-                  </div>
-                  ${s > 1 ? `<div class="text-[11px] text-slate-400">Batch makes ${plural(s, 'portion')} · ${fmt(mt.cals)} kcal total · ${macroLine(mt)}</div>` : ''}
-                  ${m.prepAhead ? '<div class="text-[11px] text-sky-300">🍱 Made ahead on prep day, one box per portion</div>' : ''}
-                  ${isBatchMeal(m) ? `<div class="text-[11px] text-slate-400">${freezesOf(m) ? '🧊 Freezes' : "Doesn't freeze"} · keeps ${plural(fridgeDaysOf(m), 'day')} in the fridge</div>` : ''}
-                  ${portionCost(m) != null ? `<div class="text-[11px] text-slate-400">≈ ${money(portionCost(m))} per portion</div>` : ''}
-                  ${richestLine(m)}
-                  <div class="text-xs text-slate-400">${m.items.map(ingredientText).filter(Boolean).join(', ')}</div>
-                  ${Object.keys(missingFoods([m])).length ? `<button data-action="re-add-meal" data-id="${m.id}" class="text-[11px] text-amber-400 underline">Put missing foods back in the pantry</button>` : ''}
-                </div>
-                <div class="flex gap-3 text-xs shrink-0">
-                  <button data-action="edit-meal" data-id="${m.id}" class="text-slate-400 hover:text-brand">Edit</button>
-                  <button data-action="delete-meal" data-id="${m.id}" class="text-slate-400 hover:text-rose-400">Delete</button>
+            <div class="bg-slate-900 border border-slate-700 rounded-lg p-3 flex flex-col gap-2 hover:border-slate-500 transition-colors">
+              <div class="font-bold text-slate-100">${esc(m.name)}</div>
+              ${chips ? `<div class="flex flex-wrap gap-1">${chips}</div>` : ''}
+              <div class="macro-tiles" title="Per portion">
+                <div class="macro-tile kcal"><span>kcal${s > 1 ? ' / portion' : ''}</span><b>${fmt(pt.cals)}</b></div>
+                <div class="macro-tile"><span>Protein</span><b>${fmt(pt.protein)}g</b></div>
+                <div class="macro-tile"><span>Carbs</span><b>${fmt(pt.carbs)}g</b></div>
+                <div class="macro-tile"><span>Fat</span><b>${fmt(pt.fat)}g</b></div>
+              </div>
+              <div>
+                <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-0.5">Ingredients${s > 1 ? ' · whole batch' : ''}</div>
+                <div class="text-xs text-slate-300 leading-relaxed">${m.items.map(ingredientText).filter(Boolean).join(' · ')}</div>
+              </div>
+              ${richestLine(m)}
+              ${Object.keys(missingFoods([m])).length ? `<button data-action="re-add-meal" data-id="${m.id}" class="self-start text-[11px] text-amber-400 underline">Put missing foods back in the pantry</button>` : ''}
+              <div class="card-foot">
+                <span class="text-[11px] text-slate-500">${s > 1 ? `Whole batch: ${fmt(mt.cals)} kcal` : ''}</span>
+                <div class="flex gap-1.5 ml-auto">
+                  <button data-action="edit-meal" data-id="${m.id}" class="btn-edit">✏️ Edit</button>
+                  <button data-action="delete-meal" data-id="${m.id}" data-confirm="Click again to delete" class="btn-del">🗑 Delete</button>
                 </div>
               </div>
             </div>`;

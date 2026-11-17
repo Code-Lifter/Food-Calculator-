@@ -23,7 +23,9 @@ const actions = {
     const html = labelsHtml();
     if (!html) { toast('No batch boxes this week — plan some batch meals first'); return; }
     $('labels-sheet').innerHTML = html;
+    const mm = fitLabels($('labels-sheet').children.length);
     document.body.classList.add('printing-labels');
+    toast(`${$('labels-sheet').children.length} labels at ${mm / 10} × ${mm / 10} cm — print at 100% scale (not “fit to page”)`);
     window.print();
   },
   // A view setting like raw/cooked, so it isn't an undo step. Whatever is typed is converted to the new unit.
@@ -228,7 +230,21 @@ const actions = {
     state.plan[el.dataset.day].snacks.splice(Number(el.dataset.idx), 1);
     commit();
   },
-  'autofill': autoFill,
+  'autofill': () => autoFill(),
+  // 🎲 next to Auto-fill: the whole week laid out differently (see autoFill)
+  'shuffle-week': () => autoFill({ shuffle: true }),
+  // Two people: this slot on this day is each person's own meal (or back to the same meal for both,
+  // in which case the other person gets the viewed person's meal on the next commit)
+  'toggle-split': el => {
+    const key = `${el.dataset.day}|${el.dataset.slot}`;
+    const own = !state.split[key];
+    if (own) state.split[key] = true; else delete state.split[key];
+    commit();
+    const label = (MAIN_SLOTS.find(([s]) => s === el.dataset.slot) || [, el.dataset.slot])[1].toLowerCase();
+    toast(own
+      ? `${DAYS[el.dataset.day]} ${label}: pick your own meals — changes here no longer change ${personName(1 - state.person)}'s`
+      : `${DAYS[el.dataset.day]} ${label}: same meal for both again`, { undoable: true });
+  },
   // 🎲 a different meal for one slot or snack (see rerollSlot)
   'reroll': el => rerollSlot(Number(el.dataset.day), el.dataset.slot, Number(el.dataset.idx) || 0),
   'stock-all': el => {
@@ -249,13 +265,37 @@ const actions = {
     state.macroLean = { protein: 0, carbs: 0, fat: 0 };
     commit();
   },
+  // Everyone's portions, each to their own targets
   'fit-portions': () => {
-    const target = state.daily.cals;
-    if (!target) { toast('Set your daily calories in step 1 first'); return; }
-    const sized = state.plan.filter((day, d) => fitMains(day, target, d)).length;
+    const targets = everyone().map(i => withPerson(i, () => state.daily.cals));
+    if (!targets.some(Boolean)) { toast('Set your daily calories in step 1 first'); return; }
+    const sized = everyone().reduce((n, i) => n + withPerson(i, () => (state.daily.cals ? state.plan.filter((day, d) => fitMains(day, state.daily.cals, d)).length : 0)), 0);
     if (!sized) { toast('Pick some main meals for some days first'); return; }
     commit();
-    toast(`Portions sized to ${fmt(target)} kcal a day`, { undoable: true });
+    const missing = everyone().filter(i => !targets[i]).map(personName);
+    toast(twoPeople()
+      ? `Portions sized for ${everyone().filter(i => targets[i]).map(i => `${personName(i)} (${fmt(targets[i])} kcal)`).join(' and ')}${missing.length ? ` — ${missing[0]} has no calorie target yet` : ''}`
+      : `Portions sized to ${fmt(targets[0])} kcal a day`, { undoable: true });
+  },
+  'view-person': el => viewPerson(Number(el.dataset.person)),
+  // One person ↔ two. The second person starts with the same main meals; going back to one keeps person 1.
+  'set-people': el => {
+    const n = Number(el.dataset.value);
+    if (n === state.people.length) return;
+    stashPerson();
+    if (n === 2) {
+      state.people.push(newPerson(''));
+      commit();
+      viewPerson(1);
+      toast('Second person added — fill in their stats below', { undoable: true });
+    } else {
+      const gone = personName(1);
+      loadPerson(0);
+      state.people = [state.people[0]];
+      fillInputs();
+      commit();
+      toast(`Back to one person — ${gone} removed`, { undoable: true });
+    }
   },
   'view-day': el => {
     state.viewDay = Number(el.dataset.day);
@@ -282,7 +322,7 @@ const actions = {
     toast(`Copied ${DAYS[d]} to every weekday`);
   },
   'clear-plan': () => {
-    state.plan = emptyPlan();
+    clearAllPlans();
     commit();
     toast('Week plan cleared', { undoable: true });
   },
@@ -320,7 +360,16 @@ const actions = {
     renderSummary();
     window.print();
   },
-  'open-json': openJsonModal,
+  'open-json': el => openJsonModal(el && el.dataset.focus),
+  'example-load': loadExample,
+  'example-add-foods': () => { addExampleFoods(); $('json-modal').close(); },
+  'example-copy': () => copyText(exampleJson(), 'Example JSON copied'),
+  'example-download': () => {
+    const anchor = document.createElement('a');
+    anchor.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(exampleJson());
+    anchor.download = 'meal-planner-example.json';
+    anchor.click();
+  },
   'close-json': () => $('json-modal').close(),
   'copy-json': el => {
     const out = $('json-out');
@@ -341,7 +390,7 @@ const actions = {
   },
   // The week is disposable; meals, foods and targets are kept
   'new-week': () => {
-    state.plan = emptyPlan();
+    clearAllPlans();
     state.checked = {};
     state.stock = {};
     state.viewDay = todayIndex();
@@ -416,6 +465,12 @@ const changeActions = {
     if (el.value === '') return;
     const a = Number(el.dataset.day), b = Number(el.value);
     [state.plan[a], state.plan[b]] = [state.plan[b], state.plan[a]];
+    // "Own meal" marks travel with their day
+    MAIN_SLOTS.forEach(([slot]) => {
+      const ka = `${a}|${slot}`, kb = `${b}|${slot}`, wasA = state.split[ka], wasB = state.split[kb];
+      if (wasB) state.split[ka] = true; else delete state.split[ka];
+      if (wasA) state.split[kb] = true; else delete state.split[kb];
+    });
     commit();
     toast(`Swapped ${DAYS[a]} and ${DAYS[b]}`);
   },

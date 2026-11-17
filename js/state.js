@@ -31,10 +31,10 @@ const emptyDay = () => ({ breakfast: '', lunch: '', dinner: '', meal4: '', meal5
 const emptyPlan = () => DAYS.map(emptyDay);
 const emptyDraft = () => ({ id: null, items: [] });
 const zero = () => ({ cals: 0, protein: 0, carbs: 0, fat: 0 });
-const defaultState = () => ({
+const defaultState = () => withPeople({
   stats: {
     gender: 'male', unit: 'kg', weight: '', height: '', age: '', job: 'desk', trainingHrs: '0',
-    bfPct: '', fatPct: '25', goal: 'maintain', cutSpeed: 'standard', bulkSpeed: 'standard'
+    bfPct: '', fatPct: '25', goal: 'maintain', cutSpeed: 'standard', bulkSpeed: 'standard', autoTargets: true
   },
   daily: zero(),
   foods: [],   // { id, name, grams, cals, protein, carbs, fat, … } — the pantry library; macros per 100g; grams = what the week plan uses
@@ -48,11 +48,19 @@ const defaultState = () => ({
   currency: 'GBP',
   viewDay: todayIndex(), // the day shown on phones in the week grid
   rules: { ...DEFAULT_RULES },
+  split: {}, // two people: { 'day|slot': true } where each eats their own main meal instead of the same one
   stock: {}, // { foodId: grams already at home } — taken off the shopping list
   macroLean: { protein: 0, carbs: 0, fat: 0 }, // how far auto-fill aims each macro off its target (−0.2 … +0.2)
   prep: { mode: 'freezer', second: 2 }, // 'freezer' = one prep day (Sunday) + freezer; 'two' = Sunday and the evening of day `second`
   tab: 'target'
 });
+// One or two people share the household (people.js). The fields above — stats, daily, plan, macroLean,
+// supplements — are the person being viewed; `people` holds each person's own copy of them.
+function withPeople(s) {
+  s.people = [{ name: '', stats: s.stats, daily: s.daily, plan: s.plan, macroLean: s.macroLean, supplements: s.supplements, mealsPerDay: s.mealsPerDay }];
+  s.person = 0;
+  return s;
+}
 
 let state = defaultState();
 let draft = emptyDraft();
@@ -63,6 +71,8 @@ let eraseTimer = null;
 let pantryQuery = ''; // view-only: the pantry search box
 let editingFoodId = null; // the food modal edits this food in place instead of adding one
 let editingSuppId = null;
+// view-only: Ready cards you've folded (by heading), remembered in this browser
+const readyFolded = new Set((() => { try { return JSON.parse(localStorage.getItem('ready_folded') || '[]'); } catch (e) { return []; } })());
 let microCardOpen = false; // view-only: the Ready tab's micronutrient card stays open across re-renders
 let microView = 'avg'; // view-only: the micronutrient card shows the daily average ('avg') or the week total ('week')
 const openMicroDays = new Set(); // Week tab days showing their 🥗 nutrients

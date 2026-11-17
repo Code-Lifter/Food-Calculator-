@@ -6,6 +6,8 @@ A meal planner that runs entirely in your browser: set your calorie and macro ta
 
 Download or clone the repo and open `index.html` in a browser. There's nothing to install and no server or build step. Your plan is saved in your browser (`localStorage`). To move it between devices, use the JSON export/import.
 
+New here? Press **📋 Examples** on step 2 to add a ready-made library of foods and meals, or load a whole example week.
+
 ## The six steps
 
 1. **🎯 Targets:** your stats → daily calories and macros.
@@ -14,6 +16,10 @@ Download or clone the repo and open `index.html` in a browser. There's nothing t
 4. **📅 Week:** a 7-day plan, auto-fill and portion fitting to hit your targets, 🎲 re-roll, and macro balance sliders (lean protein, carbs or fat up to 20% either way).
 5. **🏠 At home:** what you've already got in the house comes off the shopping list.
 6. **✅ Ready:** the shopping list, cooking plan, fridge/freezer boxes, 🌙 freezer → fridge reminders, micronutrients (daily average / week total) and a sugar guide.
+
+## Two people
+
+On step 1, switch **Who's eating?** to 2 people for a couple or housemates. Each person has their own stats, targets, supplements, snacks and portion sizes; the main meals are the same for both unless you mark a meal 👤 Own to pick different ones (each person can also have a different number of meals a day), and the shopping list, at-home check, boxes and cooking plan cover the whole household.
 
 ## Code
 

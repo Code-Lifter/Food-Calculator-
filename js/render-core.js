@@ -81,6 +81,14 @@ function fillInputs() {
   MACROS.forEach(([k]) => { $(`daily-${k}`).value = state.daily[k] ? Math.round(state.daily[k]) : ''; });
 }
 
+// Daily Targets heading: live from the stats, or the person's own numbers
+function renderTargetsMode() {
+  const has = !!statsResult().t;
+  $('targets-mode').innerHTML = liveOn()
+    ? `<span class="chip ${has ? 'chip-brand' : 'chip-muted'}">🔗 ${has ? 'Live from your stats' : 'Will follow your stats'}</span>`
+    : `<span class="flex items-center gap-1.5"><span class="chip">✏️ Your own numbers</span>${has ? '<button data-action="calculate" class="text-[11px] text-slate-400 hover:text-brand underline">use calculated</button>' : ''}</span>`;
+}
+
 function renderTarget() {
   const wt = weekly();
   $('weekly-output').innerHTML = `

@@ -141,6 +141,6 @@ function markInvalid(el, invalid) {
 
 const plural = (n, word, many = word + 's') => `${fmt1(n)} ${n === 1 ? word : many}`;
 
-const planIsEmpty = () => state.plan.every(day => !dayPortions(day).length);
+const planIsEmpty = () => allPlans().every(({ plan, n }) => plan.every(day => !dayPortions(day, n).length));
 
 const emptyNote = text => `<p class="text-sm text-slate-400 italic text-center py-6 border border-dashed border-slate-700 rounded-lg">${text}</p>`;

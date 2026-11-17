@@ -2,20 +2,24 @@ input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; }
 
-/* Box labels: hidden on screen, printed on their own by "Print box labels" */
-#labels-sheet { display: none; }
+/* Box labels: hidden on screen, printed on their own by "Print box labels".
+   Square labels sized so the whole week fits on one A4/Letter page: --label is set by fitLabels() (50 mm when
+   they fit, smaller for a big week, never under 25 mm); text and padding scale with it via --k (= size / 50 mm). */
+#labels-sheet { display: none; --label: 50mm; --k: 1; }
 @page { margin: 10mm; }
 @media print {
   body.printing-labels > *:not(#labels-sheet) { display: none !important; }
-  /* Each label is exactly 5 cm × 5 cm; as many per row as the page fits (3 on A4/Letter with 10 mm margins) */
-  body.printing-labels #labels-sheet { display: grid !important; grid-template-columns: repeat(auto-fill, 50mm); grid-auto-rows: 50mm; gap: 3mm; }
-  .box-label {
-    width: 50mm; height: 50mm; box-sizing: border-box; overflow: hidden;
-    border: 1px dashed #000 !important; padding: 3mm; break-inside: avoid; page-break-inside: avoid;
-    display: flex; flex-direction: column; gap: 1mm; font-size: 8.5pt; line-height: 1.2;
+  body.printing-labels #labels-sheet {
+    display: grid !important; grid-template-columns: repeat(auto-fill, var(--label)); grid-auto-rows: var(--label);
+    gap: 2mm; width: 186mm;
   }
-  .box-label-place { font-weight: 800; font-size: 13pt; letter-spacing: 0.08em; }
-  .box-label-name { font-size: 11pt; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .box-label {
+    width: var(--label); height: var(--label); box-sizing: border-box; overflow: hidden;
+    border: 1px dashed #000 !important; padding: calc(3mm * var(--k)); break-inside: avoid; page-break-inside: avoid;
+    display: flex; flex-direction: column; gap: calc(1mm * var(--k)); font-size: calc(8.5pt * var(--k)); line-height: 1.2;
+  }
+  .box-label-place { font-weight: 800; font-size: calc(13pt * var(--k)); letter-spacing: 0.08em; }
+  .box-label-name { font-size: calc(11pt * var(--k)); line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .box-label > span:last-child { margin-top: auto; }
 }
 @media print {
@@ -46,3 +50,43 @@ input[type="number"] { -moz-appearance: textfield; }
 .mb-toggle:hover { border-color: #64748b; }
 .mb-toggle:has(input:checked) { border-color: #10b981; background: rgba(16, 185, 129, 0.08); }
 .mb-muted { opacity: 0.5; }
+
+/* Shared small pieces: Edit / Delete buttons, info chips and the four macro tiles on food and meal cards */
+.btn-edit, .btn-del {
+  display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; cursor: pointer;
+  padding: 0.3rem 0.7rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 600; line-height: 1.1rem;
+  border: 1px solid; transition: background-color .15s, border-color .15s, color .15s;
+}
+.btn-edit { background: #334155; border-color: #475569; color: #e2e8f0; }
+.btn-edit:hover { background: #475569; color: #fff; }
+.btn-del { background: rgba(136, 19, 55, 0.25); border-color: rgba(159, 18, 57, 0.7); color: #fda4af; }
+.btn-del:hover { background: rgba(159, 18, 57, 0.45); color: #ffe4e6; }
+/* First click arms a delete; the second (within 4 seconds) does it */
+[data-confirm].armed { background: #e11d48 !important; border-color: #fb7185 !important; color: #fff !important; }
+.chip {
+  display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.1rem 0.5rem; border-radius: 9999px;
+  font-size: 11px; line-height: 1.1rem; border: 1px solid #334155; background: #1e293b; color: #cbd5e1; white-space: nowrap;
+}
+.chip-brand { border-color: rgba(6, 95, 70, 0.9); background: rgba(6, 78, 59, 0.35); color: #6ee7b7; }
+.chip-sky { border-color: rgba(7, 89, 133, 0.8); background: rgba(8, 47, 73, 0.5); color: #7dd3fc; }
+.chip-muted { color: #64748b; }
+.macro-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.375rem; }
+.macro-tile { background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(51, 65, 85, 0.7); border-radius: 0.5rem; padding: 0.25rem 0.5rem; min-width: 0; }
+.macro-tile > span { display: block; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #94a3b8; }
+.macro-tile > b { display: block; font-size: 0.8125rem; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.macro-tile.kcal > b { color: #34d399; }
+.card-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: auto; padding-top: 0.625rem; border-top: 1px solid rgba(51, 65, 85, 0.6); }
+details.micro-fold > summary { cursor: pointer; user-select: none; font-size: 11px; color: #94a3b8; list-style: none; }
+details.micro-fold > summary::-webkit-details-marker { display: none; }
+details.micro-fold > summary:hover { color: #e2e8f0; }
+details.micro-fold[open] > summary .fold-arrow { transform: rotate(90deg); }
+.fold-arrow { display: inline-block; transition: transform .15s; }
+
+/* Ready tab: every card folds like the micronutrient card (readyFold in render-ready.js) */
+details.ready-card > summary { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none; list-style: none; }
+details.ready-card > summary::-webkit-details-marker { display: none; }
+details.ready-card > summary > .fold-arrow { color: #94a3b8; font-size: 1.1rem; line-height: 1; flex-shrink: 0; width: 1rem; text-align: center; }
+details.ready-card[open] > summary > .fold-arrow { transform: rotate(90deg); }
+details.ready-card > summary > .fold-head { flex: 1; min-width: 0; }
+details.ready-card:not([open]) > summary { opacity: 0.9; }
+details.ready-card > summary:hover .fold-arrow { color: #e2e8f0; }

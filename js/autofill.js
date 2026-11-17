@@ -164,7 +164,7 @@ function fitScore(t, slot, target) {
 function fillPlan(picks, target, snacks) {
   state.plan = DAYS.map((_, d) => {
     const day = emptyDay();
-    Object.assign(day, picks[d]);
+    mainSlots().forEach(([slot]) => { if (picks[d][slot]) day[slot] = picks[d][slot]; }); // only the slots this person eats
     balanceDay(day, target, snacks, d);
     return day;
   });
@@ -191,39 +191,57 @@ function trySwap(day, d, slot, idx, id, target) {
 
 // After auto-fill picks a week, tries other meals in each slot (and other snacks) and keeps any swap that
 // brings the day clearly closer to its calories and macros, within the repeat limit. Two passes.
-function improveWeek(target) {
-  if (!target) return;
+// With two people a shared main meal is swapped for both at once and judged on both people's days together;
+// "own meal" slots, slots only one person has, and snacks are each person's own. `mains: 'rescue'`
+// (🎲 Shuffle week) keeps the new layout and only swaps a main meal on days that can't reach their calories.
+function improveWeek({ mains = true } = {}) {
+  const who = everyone().filter(i => withPerson(i, () => state.daily.cals > 0));
+  if (!who.length) return;
   const cap = repeatCap();
   const snacks = state.meals.filter(m => hasType(m, 'snack'));
   for (let pass = 0; pass < 2; pass++) {
-    state.plan.forEach((day, d) => {
-      let best = { day, miss: dayMiss(day, d, target) };
-      mainSlots().forEach(([slot]) => {
-        if (!best.day[slot]) return;
-        const uses = mainUses(state.plan.map((x, i) => (i === d ? best.day : x)));
-        state.meals.filter(m => hasType(m, slot) && m.id !== best.day[slot] && (uses[m.id] || 0) < cap && keepsUntil(m, d))
-          .forEach(m => {
-            const t = trySwap(best.day, d, slot, 0, m.id, target);
-            if (t.miss < best.miss * 0.97) best = t;
+    DAYS.forEach((_, d) => {
+      // Each person's day and how far it misses
+      const best = {};
+      who.forEach(i => { best[i] = withPerson(i, () => ({ day: state.plan[d], miss: dayMiss(state.plan[d], d, state.daily.cals) })); });
+      // 'rescue' only touches the main meals of a day that is still more than 3% off someone's calories
+      const swapMains = mains === true || (mains === 'rescue'
+        && who.some(i => withPerson(i, () => Math.abs(dayTotals(best[i].day, d).cals / state.daily.cals - 1) > 0.03)));
+      if (swapMains) MAIN_SLOTS.forEach(([slot]) => {
+        const holders = who.filter(i => slotsOf(i).includes(slot) && best[i].day[slot]);
+        if (!holders.length) return;
+        const together = !isSplit(d, slot) && holders.every(i => best[i].day[slot] === best[holders[0]].day[slot]);
+        (together ? [holders] : holders.map(i => [i])).forEach(group => {
+          const current = best[group[0]].day[slot];
+          const underCap = m => group.every(i => withPerson(i, () => (mainUses(state.plan.map((x, n) => (n === d ? best[i].day : x)))[m.id] || 0) < cap));
+          state.meals.filter(m => hasType(m, slot) && m.id !== current && keepsUntil(m, d) && underCap(m)).forEach(m => {
+            const trial = group.map(i => withPerson(i, () => trySwap(best[i].day, d, slot, 0, m.id, state.daily.cals)));
+            const now = group.reduce((s, i) => s + best[i].miss, 0);
+            if (trial.reduce((s, t) => s + t.miss, 0) < now * 0.97) group.forEach((i, n) => { best[i] = trial[n]; });
           });
-      });
-      best.day.snacks.forEach((_, idx) => {
-        snacks.filter(m => !best.day.snacks.includes(m.id)).forEach(m => {
-          const t = trySwap(best.day, d, 'snack', idx, m.id, target);
-          if (t.miss < best.miss * 0.97) best = t;
         });
       });
-      // A day that still can't get there (e.g. protein over its cap with calories short) may need an extra snack
-      for (let extra = 0; extra < 2 && best.day.snacks.length < MAX_SNACKS; extra++) {
-        let add = null;
-        snacks.filter(m => !best.day.snacks.includes(m.id)).forEach(m => {
-          const t = trySwap(best.day, d, 'snack', best.day.snacks.length, m.id, target);
-          if (t.miss < (add || best).miss * 0.9) add = t;
+      who.forEach(i => withPerson(i, () => {
+        const target = state.daily.cals;
+        let mine = best[i];
+        mine.day.snacks.forEach((_, idx) => {
+          snacks.filter(m => !mine.day.snacks.includes(m.id)).forEach(m => {
+            const t = trySwap(mine.day, d, 'snack', idx, m.id, target);
+            if (t.miss < mine.miss * 0.97) mine = t;
+          });
         });
-        if (!add) break;
-        best = add;
-      }
-      state.plan[d] = best.day;
+        // A day that still can't get there (e.g. protein over its cap with calories short) may need an extra snack
+        for (let extra = 0; extra < 2 && mine.day.snacks.length < MAX_SNACKS; extra++) {
+          let add = null;
+          snacks.filter(m => !mine.day.snacks.includes(m.id)).forEach(m => {
+            const t = trySwap(mine.day, d, 'snack', mine.day.snacks.length, m.id, target);
+            if (t.miss < (add || mine).miss * 0.9) add = t;
+          });
+          if (!add) break;
+          mine = add;
+        }
+        state.plan[d] = mine.day;
+      }));
     });
   }
 }
@@ -260,18 +278,33 @@ function rerollSlot(d, slot, idx = 0) {
 
 const relaxedNote = relaxed => relaxed.length ? ` — couldn't meet every rule, so relaxed ${relaxed.join('; ')}` : '';
 
-// Your own meals across the week, sized to the day; only the repeat limit applies here
-function autoFill() {
+// Your own meals across the week, sized to the day; only the repeat limit applies here.
+// Two people get the same main meals (chosen for how well they suit both), each sized for their own targets;
+// someone with more meals a day gets the extra slots to themselves. Any "own meal" slots go back to shared.
+// `shuffle` (🎲 Shuffle week) adds chance to the choice, so each press lays the week out differently.
+const SHUFFLE_NOISE = 0.6;
+function autoFill({ shuffle = false } = {}) {
   if (!state.meals.length) { toast('Create some meals first'); return; }
-  const target = state.daily.cals;
-  const options = Object.fromEntries(mainSlots().map(([slot]) => [slot, state.meals.filter(m => hasType(m, slot)).map(m => ({
-    id: m.id, tags: mealTags(m), fit: fitScore(portionTotals(m), slot, target),
-    batch: isBatchMeal(m), fridgeDays: fridgeDaysOf(m), freezes: freezesOf(m)
-  }))]));
-  const { plan, relaxed } = planWithRules(options, { maxRepeats: state.rules.maxRepeats });
+  const fitFor = (m, slot) => {
+    const eats = everyone().filter(i => slotsOf(i).includes(slot));
+    return eats.reduce((s, i) => s + withPerson(i, () => fitScore(portionTotals(m), slot, state.daily.cals)), 0) / eats.length
+      + (shuffle ? Math.random() * SHUFFLE_NOISE : 0);
+  };
+  // The person with the most meals a day has every slot anyone eats, so the week is solved as them
+  const most = everyone().reduce((a, i) => (slotsOf(i).length > slotsOf(a).length ? i : a), state.person);
+  const { plan, relaxed } = withPerson(most, () => {
+    const options = Object.fromEntries(mainSlots().map(([slot]) => [slot, state.meals.filter(m => hasType(m, slot)).map(m => ({
+      id: m.id, tags: mealTags(m), fit: fitFor(m, slot),
+      batch: isBatchMeal(m), fridgeDays: fridgeDaysOf(m), freezes: freezesOf(m)
+    }))]));
+    return planWithRules(options, { maxRepeats: state.rules.maxRepeats });
+  });
   if (!plan) { toast('Could not fill the week — try fewer rules'); return; }
-  fillPlan(plan, target, state.meals.filter(m => hasType(m, 'snack')));
-  improveWeek(target);
+  const snacks = state.meals.filter(m => hasType(m, 'snack'));
+  state.split = {};
+  everyone().forEach(i => withPerson(i, () => fillPlan(plan, state.daily.cals, snacks)));
+  improveWeek({ mains: shuffle ? 'rescue' : true });
   commit();
-  toast(`Week filled${relaxed.length ? relaxedNote(relaxed) : ' — tweak any day you like'}`, { undoable: relaxed.length > 0 });
+  const done = shuffle ? '🎲 Week shuffled' : 'Week filled';
+  toast(`${done}${twoPeople() ? ' for both of you' : ''}${relaxed.length ? relaxedNote(relaxed) : shuffle ? ' — press again for another layout' : ' — tweak any day you like'}`, { undoable: true });
 }

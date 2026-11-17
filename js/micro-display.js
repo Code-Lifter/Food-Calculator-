@@ -102,8 +102,8 @@ function microCard() {
           <div class="flex justify-between text-xs"><span class="text-slate-400">${r.label}</span><span class="text-slate-500">no data</span></div>`).join('')}
       </div>`).join('');
   return `
-    <details id="micro-card" ${microCardOpen ? 'open' : ''} class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md">
-      <summary class="cursor-pointer select-none text-lg font-bold text-slate-100">🥗 Micronutrients (${week ? 'week total' : 'daily average'})${warnings.length ? ` <span class="text-xs font-semibold text-amber-300">· ⚠ ${plural(warnings.length, 'upper-level warning')}</span>` : ''}</summary>
+    <details id="micro-card" ${microCardOpen ? 'open' : ''} class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md ready-card">
+      <summary class="text-lg font-bold text-slate-100"><span class="fold-arrow" aria-hidden="true">▸</span>🥗 ${twoPeople() ? `${esc(personName(state.person))}'s micronutrients` : 'Micronutrients'} (${week ? 'week total' : 'daily average'})${warnings.length ? ` <span class="text-xs font-semibold text-amber-300">· ⚠ ${plural(warnings.length, 'upper-level warning')}</span>` : ''}</summary>
       <div class="mt-3 space-y-4">
         <p class="text-xs text-slate-400">Estimates from the foods that have nutrient data${state.supplements.length ? ', plus supplements (<span class="text-violet-300">purple</span>)' : ''}. Targets: NHMRC Nutrient Reference Values, ${sex} ${band.replace('-', '–')}${assumed ? " — your stats in step 1 aren't filled in, so these are the adult male 19–50 values" : ''}. Add nutrients to a food with ✏️ Edit in the Single Food Pantry (step 2).</p>
         ${warnings.length ? `<div class="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 space-y-1">${warnings.map(x => `<div>⚠ ${esc(x.text)}</div>`).join('')}</div>` : ''}

@@ -14,28 +14,50 @@ function load() {
     if (raw) applyState(JSON.parse(raw));
   } catch (e) {}
 }
+// One person's own data, from a saved person (or from the top level of a session saved before two-person mode)
+function normalisePerson(p, fallbackMeals) {
+  const base = defaultState();
+  // Sessions saved before the meals-a-day setting had three; before it was per person, everyone shared one
+  const mpd = Number(p.mealsPerDay ?? fallbackMeals);
+  const stats = { ...base.stats, ...p.stats };
+  migrateStats(stats, p.stats || {});
+  // Sessions saved before the macro sliders aim straight at the targets
+  const lean = p.macroLean || {};
+  const macroLean = Object.fromEntries(['protein', 'carbs', 'fat'].map(k => {
+    const v = Number(lean[k]);
+    return [k, Number.isFinite(v) ? Math.min(0.2, Math.max(-0.2, Math.round(v * 20) / 20)) : 0];
+  }));
+  const plan = Array.isArray(p.plan) && p.plan.length === DAYS.length ? p.plan : emptyPlan();
+  const daily = { ...base.daily, ...p.daily };
+  // Saves from before live targets: live if the saved targets are empty or match the stats; hand-typed ones are kept
+  if (typeof (p.stats || {}).autoTargets !== 'boolean') {
+    const { body } = bodyFromStats(stats);
+    const t = body && targetsFor(body);
+    stats.autoTargets = !daily.cals || !!(t && Math.abs(t.target - daily.cals) <= 2 && Math.abs(t.macros.protein - daily.protein) <= 2);
+  }
+  return {
+    name: String(p.name || '').slice(0, 20), stats, macroLean,
+    mealsPerDay: Number.isInteger(mpd) && mpd >= MEALS_MIN && mpd <= MEALS_MAX ? mpd : base.mealsPerDay,
+    // Saved daily targets load as they are; while live (stats.autoTargets) the next change re-works them
+    daily,
+    // Sessions saved before supplements have none
+    supplements: (Array.isArray(p.supplements) ? p.supplements : []).filter(x => x && typeof x === 'object').map(normaliseSupplement),
+    plan: plan.map(d => ({ ...emptyDay(), ...d, snacks: Array.isArray(d.snacks) ? d.snacks : [], sizes: { ...d.sizes }, flex: { ...d.flex } }))
+  };
+}
 function applyState(data) {
   const base = defaultState();
-  state = { ...base, ...data, stats: { ...base.stats, ...data.stats }, daily: { ...base.daily, ...data.daily } };
-  migrateStats(state.stats, data.stats || {});
+  state = { ...base, ...data };
+  // Two-person sessions keep each person in `people`; older ones are a single person at the top level
+  const saved = Array.isArray(data.people) && data.people.length ? data.people.slice(0, MAX_PEOPLE) : [data];
+  state.people = saved.map(p => normalisePerson(p && typeof p === 'object' ? p : {}, data.mealsPerDay));
+  loadPerson(Number.isInteger(data.person) && state.people[data.person] ? data.person : 0);
   state.energyUnit = ['kJ', 'kcal'].includes(data.energyUnit) ? data.energyUnit : base.energyUnit;
   state.currency = CURRENCIES[data.currency] ? data.currency : base.currency;
   // Sessions saved before step 5 have nothing at home
   state.stock = Object.fromEntries(Object.entries(data.stock && typeof data.stock === 'object' ? data.stock : {})
     .map(([id, g]) => [id, Math.round(Number(g))]).filter(([, g]) => g > 0));
-  // Sessions saved before the macro sliders aim straight at the targets
-  const lean = data.macroLean || {};
-  state.macroLean = Object.fromEntries(['protein', 'carbs', 'fat'].map(k => {
-    const v = Number(lean[k]);
-    return [k, Number.isFinite(v) ? Math.min(0.2, Math.max(-0.2, Math.round(v * 20) / 20)) : 0];
-  }));
-  // Sessions saved before the meals-a-day setting had three
-  const mpd = Number(data.mealsPerDay);
-  state.mealsPerDay = Number.isInteger(mpd) && mpd >= MEALS_MIN && mpd <= MEALS_MAX ? mpd : base.mealsPerDay;
-  // Sessions saved before supplements have none
-  state.supplements = (Array.isArray(data.supplements) ? data.supplements : []).filter(x => x && typeof x === 'object').map(normaliseSupplement);
-  // Saved daily targets stay as they are; they only change when Calculate is pressed
-  // Sessions saved before the lock toggle keep the amounts people typed
+  state.split = Object.fromEntries(Object.entries(data.split && typeof data.split === 'object' ? data.split : {}).filter(([k, v]) => v === true && /^[0-6]\|\w+$/.test(k)));
   // Food lists written by hand or by other tools are read too: duplicate ids keep the first one
   const seen = new Set();
   state.foods = (Array.isArray(data.foods) ? data.foods : [])
@@ -56,8 +78,6 @@ function applyState(data) {
     const f = state.foods.find(f => f.id === i.foodId);
     if (f) i.snap = snapOf(f);
   }));
-  const plan = Array.isArray(data.plan) && data.plan.length === DAYS.length ? data.plan : emptyPlan();
-  state.plan = plan.map(d => ({ ...emptyDay(), ...d, snacks: Array.isArray(d.snacks) ? d.snacks : [], sizes: d.sizes || {}, flex: d.flex || {} }));
   // Sessions saved before weekly rules get the defaults; bad values fall back one by one
   state.rules = { ...DEFAULT_RULES };
   RULE_DEFS.forEach(({ key }) => {
@@ -135,6 +155,7 @@ function migrateStats(st, saved) {
 }
 
 function save() {
+  stashPerson();
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
 }
 
@@ -269,8 +290,8 @@ const sizeOf = (day, slot) => day.sizes && day.sizes[slot] > 0 ? day.sizes[slot]
 const flexOf = (day, slot) => (day.flex && day.flex[slot]) || {};
 // Every filled slot of a day: main slots can be resized and have range picks, snacks are one standard portion
 // `key` names the slot within the day (snacks by position), so storage can find each box
-const dayPortions = day => [
-  ...mainSlots().map(([slot, label]) => ({ slot, key: slot, label, meal: mealById(day[slot]), size: sizeOf(day, slot), flex: flexOf(day, slot) })),
+const dayPortions = (day, n = state.mealsPerDay) => [
+  ...mainSlots(n).map(([slot, label]) => ({ slot, key: slot, label, meal: mealById(day[slot]), size: sizeOf(day, slot), flex: flexOf(day, slot) })),
   ...day.snacks.map((id, i) => ({ slot: 'snack', key: `snack${i}`, label: 'Snack', meal: mealById(id), size: 1, flex: {} }))
 ].filter(p => p.meal);
 // Supplements taken on day d (Mon = 0) add their kcal and macros. d is the day's index; without it only food counts.

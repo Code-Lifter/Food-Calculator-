@@ -58,52 +58,60 @@ function renderShopping() {
       </div>` : '';
     const m = meta(f);
     const pack = m.packLabel || m.pricePerPack != null
-      ? `<span>📦 ${esc(m.packLabel || `${fmt(m.packGrams)}g`)}${m.pricePerPack != null ? ` · <span class="text-brand">${money(m.pricePerPack)}</span>` : ''}</span>` : '';
+      ? `<span class="chip">📦 ${esc(m.packLabel || `${fmt(m.packGrams)}g`)}${m.pricePerPack != null ? ` · <b class="text-brand">${money(m.pricePerPack)}</b>` : ''}</span>` : '';
     const n = users[f.id];
+    const status = f.grams > 0 ? `<span class="chip chip-brand">this week · ${fmtWeight(f.grams)}</span>`
+      : n ? `<span class="chip">in ${plural(n, 'meal')}</span>` : '<span class="chip chip-muted">not in a meal yet</span>';
+    // A food that meals use shows who uses it before it goes (its own confirm step); the rest ask for a second click
+    const del = n ? '' : ' data-confirm="Click again to delete"';
     return `
-      <div class="bg-slate-900 border border-slate-700 rounded-lg p-3 flex items-start gap-3 hover:border-slate-500 transition-colors">
-        <div class="flex-1 min-w-0 space-y-1">
-          <div class="flex flex-wrap items-baseline gap-x-2">
-            <button data-action="edit-food" data-id="${f.id}" title="Edit ${esc(f.name)}" class="max-w-full font-bold text-slate-200 text-sm truncate text-left hover:text-brand hover:underline">${esc(f.name)}</button>
-            <span class="text-[11px] ${f.grams > 0 ? 'text-brand' : 'text-slate-500'}">${f.grams > 0 ? `this week: ${fmtWeight(f.grams)}` : n ? `in ${plural(n, 'meal')}` : 'not in any meal yet'}</span>
-          </div>
-          <div class="text-[11px] text-slate-400 flex flex-wrap gap-x-4">
-            <span class="text-emerald-400 font-bold">${fmt(f.cals)} kcal</span>
-            <span>P: ${fmt1(f.protein)}</span> <span>C: ${fmt1(f.carbs)}</span> <span>F: ${fmt1(f.fat)}</span>
-            <span class="text-slate-500">per 100g</span>
-          </div>
-          ${foodMicrosHtml(f)}
-          <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+      <div class="bg-slate-900 border border-slate-700 rounded-lg p-3 flex flex-col gap-2 hover:border-slate-500 transition-colors">
+        <div class="flex items-start justify-between gap-2">
+          <button data-action="edit-food" data-id="${f.id}" title="Edit ${esc(f.name)}" class="min-w-0 font-bold text-slate-100 text-sm truncate text-left hover:text-brand">${esc(f.name)}</button>
+          <span class="shrink-0">${status}</span>
+        </div>
+        <div class="macro-tiles" title="Per 100g">
+          <div class="macro-tile kcal"><span>kcal</span><b>${fmt(f.cals)}</b></div>
+          <div class="macro-tile"><span>Protein</span><b>${fmt1(f.protein)}g</b></div>
+          <div class="macro-tile"><span>Carbs</span><b>${fmt1(f.carbs)}g</b></div>
+          <div class="macro-tile"><span>Fat</span><b>${fmt1(f.fat)}g</b></div>
+        </div>
+        ${foodMicrosHtml(f)}
+        <div class="card-foot">
+          <div class="flex flex-wrap items-center gap-1.5">
             ${pack}
             <button data-action="toggle-short-life" data-id="${f.id}" aria-pressed="${isShortLife(f)}"
               title="Fresh food that won't keep all week. With two prep days, the part needed later goes on a mid-week top-up."
-              class="px-2 py-0.5 rounded border transition-colors ${isShortLife(f) ? 'border-sky-800/60 bg-sky-950/40 text-sky-300 hover:bg-sky-900/50' : 'border-slate-700 text-slate-500 hover:text-slate-300'}">
-              🥬 Short life
-            </button>
-            <button data-action="edit-food" data-id="${f.id}" title="Edit this food: name, aisle, macros, vitamins and minerals"
-              class="px-2 py-0.5 rounded border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 transition-colors">✏️ Edit</button>
+              class="chip transition-colors ${isShortLife(f) ? 'chip-sky' : 'chip-muted hover:text-slate-300'}">🥬 Short life</button>
+          </div>
+          <div class="flex gap-1.5 ml-auto">
+            <button data-action="edit-food" data-id="${f.id}" title="Edit this food: name, aisle, macros, vitamins and minerals" class="btn-edit">✏️ Edit</button>
+            <button data-action="delete-food" data-id="${f.id}"${del} class="btn-del" aria-label="Delete ${esc(f.name)}">🗑 Delete</button>
           </div>
         </div>
-        <button data-action="delete-food" data-id="${f.id}" class="shrink-0 text-slate-600 hover:text-rose-400 p-2 hover:bg-slate-800 rounded transition-colors" aria-label="Remove ${esc(f.name)}">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>${confirmRow}`;
+        ${confirmRow}
+      </div>`;
   };
   $('basket-list').innerHTML = shown.length
     ? byAisle(shown).map(([label, foods]) => `
-      <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 pt-2">${label} <span class="font-normal normal-case text-slate-500">· ${foods.length}</span></h3>
-      ${foods.map(row).join('')}`).join('')
+      <section class="space-y-2">
+        <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300 pt-3 pb-1 border-b border-slate-700/70">${label} <span class="chip">${foods.length}</span></h3>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-2">${foods.map(row).join('')}</div>
+      </section>`).join('')
     : emptyNote(`Nothing in your pantry matches “${esc(pantryQuery.trim())}”.`);
 }
 
 // Pantry row: the micronutrients this food has (per 100 g), or a nudge to add them
 function foodMicrosHtml(f) {
   const known = NUTRIENTS.map(([k, label, unit]) => [label, unit, microOf(f, k)]).filter(([, , v]) => v != null);
-  if (!known.length) return `<button data-action="edit-food" data-id="${f.id}" data-focus="micros" class="text-[11px] text-slate-500 hover:text-brand">🥗 + Add micronutrients</button>`;
-  return `<div class="flex flex-wrap gap-1 text-[10px]" title="Micronutrients per 100g">
-    <span class="text-slate-500">🥗 /100g:</span>
-    ${known.map(([label, unit, v]) => `<span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">${esc(label)} ${fmtMicro(v)}${unit}</span>`).join('')}
-  </div>`;
+  if (!known.length) return `<button data-action="edit-food" data-id="${f.id}" data-focus="micros" class="self-start text-[11px] text-slate-500 hover:text-brand">🥗 + Add vitamins &amp; minerals</button>`;
+  // Folded away by default: fourteen chips per food made the list hard to scan
+  return `<details class="micro-fold">
+    <summary><span class="fold-arrow">▸</span> 🥗 ${plural(known.length, 'vitamin & mineral', 'vitamins & minerals')} <span class="text-slate-500">per 100g</span></summary>
+    <div class="flex flex-wrap gap-1 pt-1.5">
+      ${known.map(([label, unit, v]) => `<span class="chip">${esc(label)} <b>${fmtMicro(v)}${unit}</b></span>`).join('')}
+    </div>
+  </details>`;
 }
 
 // [[aisle label, foods sorted by name]] in walking order, empty aisles skipped

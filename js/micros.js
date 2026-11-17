@@ -76,18 +76,18 @@ function ulWarnings() {
   return out;
 }
 
-// Grams of each food the week plan uses: each slot's portions' share of the batch
+// Grams of each food the week uses, for everyone in the house: each slot's portions' share of the batch
 function plannedGrams() {
   const used = {};
-  state.plan.forEach(day => dayPortions(day).forEach(({ meal, size, flex }) => slotItems(meal, size, flex).forEach(({ item: i, grams }) => {
+  allPlans().forEach(({ plan, n }) => plan.forEach(day => dayPortions(day, n).forEach(({ meal, size, flex }) => slotItems(meal, size, flex).forEach(({ item: i, grams }) => {
     used[i.foodId] = (used[i.foodId] || 0) + grams;
-  })));
+  }))));
   return used;
 }
 
-// Portions of each meal the plan eats
+// Portions of each meal the week eats (everyone's)
 function mealCounts() {
   const counts = {};
-  state.plan.forEach(day => dayPortions(day).forEach(({ meal, size }) => { counts[meal.id] = (counts[meal.id] || 0) + size; }));
+  allPlans().forEach(({ plan, n }) => plan.forEach(day => dayPortions(day, n).forEach(({ meal, size }) => { counts[meal.id] = (counts[meal.id] || 0) + size; })));
   return counts;
 }

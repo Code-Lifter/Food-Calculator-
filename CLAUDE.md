@@ -41,6 +41,7 @@ The internal id `shopping` was kept when the tab was renamed to "Single Food Pan
 | `picker.js` | `searchPicker` (type-to-filter food/meal picker) |
 | `render-pantry.js` | step 2: `renderShopping`, `foodMicrosHtml` |
 | `render-meals.js` | step 3: meal builder + meal cards (`renderMeals`) |
+| `people.js` | one or two people (`state.people`, viewed one = `state.person`): `stashPerson`/`loadPerson`/`withPerson(i, fn)`, `viewPerson`, `syncPartners` (mirrors main meals to the other person on every commit), `allPlans`, `allSupplements`, `renderPersonBar`, `renderPeople` |
 | `render-stock.js` | step 5, At home: `renderStock` — what's already in the house per food (`state.stock`, grams; counted foods typed as a count via `countUnit`). Typing updates only its row (`updateStockRow`) so the cursor stays; `shopLists()` subtracts it (main shop first, then the top-up). Cleared by Start a New Week; left out of share links |
 | `render-week.js` | step 4: rules card, `renderMacroLean` (Macro balance sliders → `state.macroLean`) + `renderPlan` |
 | `storage.js` | `cookingSessions`, `portionParts`, `isBatchMeal`, `storagePlan`, `eveningReminders`, `thawHtml`, `noThawNote` |
@@ -71,6 +72,36 @@ The internal id `shopping` was kept when the tab was renamed to "Single Food Pan
 - Batch meals (`isBatchMeal`) are cooked on a prep day and boxed: either `servings > 1` with 🔗 ratio ingredients (only the ratio part goes in the box; extras are added on the day), or `prepAhead: true` (🍱 a one-portion recipe made for the whole week; the whole portion goes in the box). `storagePlan()` puts each box in the fridge, the freezer (after `fridgeDays`, if `freezes`) or flags it as 'over'.
 - The pantry is a library: foods are never auto-removed, and `f.grams` (what to buy) is always derived from the week plan by `syncDerivedGrams()` on every `commit`. There is no fixed/🔒 amount any more; `normaliseFood` deletes the old `locked` field from saves.
 - Weights are raw. Cooked mode converts using cooked factors (rice ×2.9, pasta ×2.2, chicken ×0.73).
+
+## Live targets (edit.js)
+- There's no Calculate button. `commit()` calls `applyLiveTargets()`: while `state.stats.autoTargets` is true and the stats are complete and valid (`statsResult()`), `state.daily` is set from `targetsFor()` on every change. The Daily Targets boxes are refreshed unless one has focus.
+- Typing in a Daily Targets box sets `autoTargets = false` (the person's own numbers). The `calculate` action ("↻ Use calculated targets") turns live back on.
+- `renderLiveTargets()` shows the result (or what's missing or out of range) under the stats; `renderTargetsMode()` shows the chip on the Daily Targets heading.
+- Old saves: live if their saved targets were empty or matched the stats; otherwise hand-typed and kept (`normalisePerson`).
+
+## Built-in example (example-data.js)
+- `EXAMPLE_SESSION` is a full session (123 foods, 26 meals, a week, 4 supplements) for a made-up person (80 kg, 180 cm, 30). It was generated from the test library with the stats replaced, meal snapshots stripped and `grams` zeroed. **Never put real stats in it**: it ships in the public repo, unlike `test.json`.
+- It's opened from 📋 Examples on step 2 (`open-json` with `data-focus="examples"`) or from the JSON modal. `loadExample()` replaces everything (two-click confirm), then sizes the week to the live targets. `addExampleFoods()` merges by name: your foods and meals win, and example meals are re-pointed at your foods. Copy and download give the example as JSON.
+
+## Shared UI pieces (css/styles.css)
+- **Delete needs two clicks.** Put `data-confirm="Click again to delete"` on any `data-action` button: the click handler in `events.js` (`confirmClick`) arms it on the first click (red, shows that text, 4 s) and only runs the action on the second. Used by delete meal / supplement / unused food, Clear week and Clear at-home. A food that meals use shows its "used by" warning instead; Erase everything has its own older version.
+- Edit and Delete are always `.btn-edit` (✏️) and `.btn-del` (🗑), bottom-right in a `.card-foot`.
+- Food and meal cards share `.macro-tiles` (kcal / protein / carbs / fat), `.chip` (+ `chip-brand`, `chip-sky`, `chip-muted`) for facts, and `details.micro-fold` for anything folded away (a food's vitamins and minerals, the Week tab's how-it-works text).
+
+## Ready tab folding and labels
+- `readyFold()` runs at the end of `renderSummary()` and turns each top-level card in `#summary-content` into `<details class="ready-card">`: the heading row becomes the `<summary>`, and any buttons in it move into the body. The key is the heading text without its changing parts (`data-fold`). Folded keys live in `readyFolded`, saved to `localStorage['ready_folded']` (a per-browser view setting, not in state or undo). Printing opens every card (`beforeprint`, with `printOpening` so it isn't remembered), then `afterprint` restores the folds.
+- Box labels: `fitLabels(n)` picks the biggest square, 50 mm down to 25 mm, that puts all n labels on one page (186 × 255 mm printable, 2 mm gaps). It sets `--label` and `--k` on `#labels-sheet`, and the CSS scales text and padding by `--k`. More than ~60 labels still spill onto a second page at 25 mm.
+
+## Two people (people.js)
+- `state.stats`, `daily`, `plan`, `macroLean` and `supplements` are always **the person being viewed** (`state.person`). `state.people[i]` holds each person's own copy plus `name`. `stashPerson()` copies the viewed person's fields back into `state.people`; it runs in `save()`, `snapshot()` and `syncPartners()`. Old one-person saves load as `people: [that person]`.
+- To compute something for another person, wrap it: `withPerson(i, () => …)`. Inside, all the usual helpers (`dayTotals`, `fitMains`, `dayMiss`, `suppsOn`) work on that person.
+- `mealsPerDay` is per person too (it's in `PERSON_KEYS`). Household loops use `allPlans()` → `{ who, plan, n }` and must call `dayPortions(day, n)`; `slotsOf(i)` gives a person's main slots.
+- `state.split['<day>|<slot>'] = true` marks a slot where each person picks their own main meal (👥 Same / 👤 Own on the Week tab, action `toggle-split`). `syncPartners()` skips split slots and slots only one person has. Auto-fill, 🎲 Shuffle week, Clear and Start a New Week reset the splits.
+- 🎲 Shuffle week = `autoFill({ shuffle: true })`: random noise (`SHUFFLE_NOISE`) on each meal's fit, then `improveWeek({ mains: 'rescue' })`, which only swaps mains on days still more than 3% off calories.
+- **Main meals are shared, the rest is per person.** `commit()` calls `syncPartners()`: the other person's main slots are set to match the viewed person's, and any day that changed is re-fitted to their targets. Snacks, portion sizes, ↕ picks, macro balance and supplements are each person's own.
+- Household totals go through `allPlans()`: `plannedGrams`, `mealCounts`, `storagePlan` (each box has `who`), `cookingSessions`, `phaseGrams`, and `allSupplements()` for supplement shopping/cost. `boxesBySlot(boxes, who = state.person)` gives one person's boxes.
+- Auto-fill picks mains by the average `fitScore` across people, fills each person, then `improveWeek()` swaps a main only if both people's days together get better. ⚖️ Fit portions sizes everyone.
+- Ready tab: Today and Day by day show a block per person; "week at a glance" and micronutrients show the viewed person; shopping, At home, cost, boxes, labels and cooking are combined.
 
 ## Micronutrient colours
 `microRows(m, kcal, days)` → rows with `tone` from `microTone()`:

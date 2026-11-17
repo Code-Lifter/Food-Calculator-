@@ -2,7 +2,7 @@
 
 // Only the open step is drawn on each change; the others draw when you switch to them
 const PANEL_RENDERERS = {
-  target: () => { renderStats(); renderTarget(); renderPrep(); renderSupplements(); },
+  target: () => { renderPeople(); renderStats(); renderLiveTargets(); renderTargetsMode(); renderTarget(); renderPrep(); renderSupplements(); },
   shopping: () => { renderEnergyUnit(); $('currency').value = state.currency; renderShopping(); },
   meals: () => renderMeals(),
   plan: () => renderPlan(),
@@ -13,6 +13,7 @@ const PANEL_RENDERERS = {
 function renderAll() {
   renderHistory();
   renderStatus();
+  renderPersonBar();
   renderTabs();
   PANEL_RENDERERS[state.tab]();
 }
@@ -31,7 +32,7 @@ function syncDerivedGrams() {
 }
 
 // View settings (open tab, raw/cooked, kJ/kcal) aren't part of undo history
-const snapshot = () => JSON.stringify({ ...state, tab: undefined, weightMode: undefined, viewDay: undefined, energyUnit: undefined });
+const snapshot = () => { stashPerson(); return JSON.stringify({ ...state, tab: undefined, weightMode: undefined, viewDay: undefined, energyUnit: undefined }); };
 
 // `group` merges rapid changes to one field (typing "2000") into a single undo step
 function recordHistory(group) {
@@ -49,9 +50,11 @@ function recordHistory(group) {
 }
 
 function restore(snap) {
-  const { tab, weightMode, viewDay, energyUnit } = state;
+  const { tab, weightMode, viewDay, energyUnit, person } = state;
   applyState(JSON.parse(snap));
   Object.assign(state, { tab, weightMode, viewDay, energyUnit });
+  // Stay on the person being viewed (if they still exist after the undo)
+  if (state.people[person] && person !== state.person) { stashPerson(); loadPerson(person); }
   lastSnapshot = snapshot();
   lastGroup = null;
   fillInputs();
@@ -80,6 +83,8 @@ function renderHistory() {
 
 function commit(group) {
   refreshSnapshots();
+  applyLiveTargets();
+  syncPartners();
   syncDerivedGrams();
   recordHistory(group);
   save();

@@ -9,8 +9,30 @@ document.addEventListener('click', e => {
     return;
   }
   const el = e.target.closest('[data-action]');
-  if (el && el.tagName === 'BUTTON' && actions[el.dataset.action]) actions[el.dataset.action](el);
+  if (el && el.tagName === 'BUTTON' && actions[el.dataset.action]) {
+    if (el.dataset.confirm && !confirmClick(el)) return;
+    actions[el.dataset.action](el);
+  }
 });
+
+// Delete-type buttons carry data-confirm="Click again to …": the first click arms the button (it turns red and
+// shows that text) and returns false; a second click within 4 seconds returns true and the action runs.
+function confirmClick(el) {
+  const disarm = () => {
+    clearTimeout(el.confirmTimer);
+    if (!el.dataset.armed) return;
+    delete el.dataset.armed;
+    el.classList.remove('armed');
+    el.innerHTML = el.confirmLabel;
+  };
+  if (el.dataset.armed) { disarm(); return true; }
+  el.dataset.armed = '1';
+  el.confirmLabel = el.innerHTML;
+  el.textContent = el.dataset.confirm;
+  el.classList.add('armed');
+  el.confirmTimer = setTimeout(disarm, 4000);
+  return false;
+}
 
 document.addEventListener('change', e => {
   const el = e.target.closest('[data-action]');
@@ -20,18 +42,30 @@ document.addEventListener('change', e => {
 document.querySelectorAll('[data-stat]').forEach(el => {
   el.addEventListener('input', () => {
     state.stats[el.dataset.stat] = el.value;
-    if (parseFloat(el.value) > 0) markInvalid(el, false);
-    if (!document.querySelector('[data-stat][aria-invalid="true"]')) $('stats-error').classList.add('hidden');
-    showStatsNotes([]);
-    commit(`stat-${el.dataset.stat}`);
+    commit(`stat-${el.dataset.stat}`); // the daily targets follow (applyLiveTargets)
   });
 });
 
 document.querySelectorAll('[data-target]').forEach(el => {
   el.addEventListener('input', () => {
     state.daily[el.dataset.target] = Math.max(0, parseFloat(el.value) || 0);
+    // Typing your own target stops the stats overwriting it
+    if (liveOn()) { state.stats.autoTargets = false; toast('Using your own targets — “use calculated” switches back to live'); }
     commit(`daily-${el.dataset.target}`);
   });
+});
+
+// Step 1 (two people): names save as you type; the labels elsewhere catch up on the next redraw
+document.addEventListener('input', e => {
+  const el = e.target.closest('[data-person-name]');
+  if (!el) return;
+  state.people[Number(el.dataset.personName)].name = el.value.slice(0, 20);
+  recordHistory(`person-name-${el.dataset.personName}`);
+  save();
+  renderHistory();
+  renderPersonBar();
+  const label = document.querySelector('[data-person-label]');
+  if (label) label.textContent = personName(state.person);
 });
 
 // Step 5: typing what's at home saves as you go and redraws only that row (keeps the cursor)
@@ -108,9 +142,17 @@ document.querySelectorAll('dialog').forEach(d => d.addEventListener('close', () 
 }));
 
 // Print shows the summary even when another step is open
-window.addEventListener('beforeprint', renderSummary);
+window.addEventListener('beforeprint', () => {
+  renderSummary();
+  printOpening = true;
+  document.querySelectorAll('#summary-content details').forEach(d => { d.open = true; }); // print every card in full
+});
 // Box labels print on their own; the normal print comes back afterwards
-window.addEventListener('afterprint', () => document.body.classList.remove('printing-labels'));
+window.addEventListener('afterprint', () => {
+  document.body.classList.remove('printing-labels');
+  // Toggle events from opening the cards arrive after this, so wait for them before listening again
+  setTimeout(() => { printOpening = false; if (state.tab === 'summary') renderSummary(); }, 0); // back to how the cards were folded
+});
 
 // Ctrl/⌘+Z and Ctrl/⌘+Shift+Z (or Ctrl+Y); text fields keep their own typing undo
 document.addEventListener('keydown', e => {
@@ -155,4 +197,12 @@ $('food-modal').addEventListener('close', () => { editingFoodId = null; });
 $('supp-modal').addEventListener('close', () => { editingSuppId = null; });
 $('supp-form').addEventListener('submit', e => { e.preventDefault(); saveSupplement(); });
 // <details> on re-rendered panels: remember whether the micronutrient card is open (toggle doesn't bubble, so capture)
-document.addEventListener('toggle', e => { if (e.target.id === 'micro-card') microCardOpen = e.target.open; }, true);
+let printOpening = false; // while printing, every card is opened; that isn't the person folding or unfolding
+document.addEventListener('toggle', e => {
+  if (printOpening) return;
+  if (e.target.id === 'micro-card') microCardOpen = e.target.open;
+  const key = e.target.dataset && e.target.dataset.fold;
+  if (!key) return;
+  if (e.target.open) readyFolded.delete(key); else readyFolded.add(key);
+  try { localStorage.setItem('ready_folded', JSON.stringify([...readyFolded])); } catch (err) {}
+}, true);

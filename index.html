@@ -45,10 +45,13 @@
     <!-- Always-visible status -->
     <div id="status-bar" class="no-print sticky top-2 z-40 grid grid-cols-2 sm:grid-cols-5 gap-x-2 gap-y-1.5 bg-slate-800/95 backdrop-blur p-2 sm:p-3 rounded-xl border border-slate-700 shadow-lg text-center"></div>
 
+    <!-- Two people: whose targets, week and day-by-day are on screen -->
+    <div id="person-bar" class="no-print hidden flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 bg-slate-800 px-3 py-2 rounded-xl border border-slate-700"></div>
+
     <!-- Step tabs -->
     <nav id="tabs" role="tablist" aria-label="Steps" class="no-print grid grid-cols-6 gap-1 bg-slate-800 p-1 rounded-xl border border-slate-700">
       <button data-tab="target" id="tab-target" role="tab" aria-controls="panel-target" class="tab-btn"><span aria-hidden="true">🎯</span><span><span class="hidden sm:inline">1. </span>Targets</span></button>
-      <button data-tab="shopping" id="tab-shopping" role="tab" aria-controls="panel-shopping" class="tab-btn"><span aria-hidden="true">🥫</span><span><span class="hidden sm:inline">2. </span><span class="hidden md:inline">Single Food </span>Pantry</span></button>
+      <button data-tab="shopping" id="tab-shopping" role="tab" title="Single Food Pantry" aria-controls="panel-shopping" class="tab-btn"><span aria-hidden="true">🥫</span><span><span class="hidden sm:inline">2. </span>Pantry</span></button>
       <button data-tab="meals" id="tab-meals" role="tab" aria-controls="panel-meals" class="tab-btn"><span aria-hidden="true">🍽️</span><span><span class="hidden sm:inline">3. </span>Meals</span></button>
       <button data-tab="plan" id="tab-plan" role="tab" aria-controls="panel-plan" class="tab-btn"><span aria-hidden="true">📅</span><span><span class="hidden sm:inline">4. </span>Week</span></button>
       <button data-tab="stock" id="tab-stock" role="tab" aria-controls="panel-stock" class="tab-btn"><span aria-hidden="true">🏠</span><span><span class="hidden sm:inline">5. </span>At home</span></button>
@@ -57,6 +60,9 @@
 
     <!-- 1. Targets -->
     <section data-panel="target" id="panel-target" role="tabpanel" aria-labelledby="tab-target" class="space-y-6">
+
+      <!-- One person or two (people.js) -->
+      <div id="people-card" class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-3"></div>
 
       <!-- Stats calculator (same maths as food.html) -->
       <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-4">
@@ -129,8 +135,8 @@
           <p id="goal-desc" class="mt-2 text-xs text-brand font-mono text-center"></p>
         </div>
 
-        <p id="stats-error" role="alert" class="hidden text-sm text-rose-300"></p>
-        <button data-action="calculate" class="w-full bg-slate-100 hover:bg-white text-slate-900 font-bold py-2.5 rounded-lg transition-colors uppercase tracking-widest text-sm">Calculate my daily targets</button>
+        <!-- Live result: the daily targets these stats give (edit.js, renderLiveTargets) -->
+        <div id="live-targets" role="status" aria-live="polite"></div>
         <p id="bmr-formula" class="text-[11px] text-slate-400 text-center"></p>
         <div id="stats-note" role="status" class="hidden text-xs text-amber-300 space-y-0.5"></div>
       </div>
@@ -138,7 +144,10 @@
 
       <!-- Daily targets (×7 like food-prep.html's multiplier) -->
       <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-4">
-        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Daily Targets <span class="normal-case font-normal text-slate-400">— calculated above, or type your own</span></h2>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Daily Targets <span class="normal-case font-normal text-slate-400">— from your stats, or type your own</span></h2>
+          <span id="targets-mode"></span>
+        </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label for="daily-cals" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Daily Cals</label>
@@ -184,7 +193,10 @@
           <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">2. Single Food Pantry</h2>
           <p class="text-xs text-slate-400 mt-1">Your library of single ingredients, per 100g from the label. Use them in your meals in step 3 — how much to buy is worked out from your week plan, so there's no amount to enter here.</p>
         </div>
-        <button data-action="open-food" class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-4 rounded-lg transition-colors">+ Add a food</button>
+        <div class="flex flex-wrap gap-2">
+          <button data-action="open-json" data-focus="examples" title="Start from an example pantry, meals and week" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg border border-slate-600 transition-colors">📋 Examples</button>
+          <button data-action="open-food" class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-4 rounded-lg transition-colors">+ Add a food</button>
+        </div>
       </div>
 
       <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-4">
@@ -225,15 +237,20 @@
           <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">4. Left to Plan This Week</h2>
           <div class="flex gap-2">
             <button data-action="autofill" class="text-xs bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-1.5 px-3 rounded transition-colors">Auto-fill week</button>
+            <button data-action="shuffle-week" title="Not happy with the layout? Shuffles the whole week into a different set of meals, portions still fitted" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-1.5 px-3 rounded border border-slate-600 transition-colors">🎲 Shuffle week</button>
             <button data-action="fit-portions" title="Keeps your meals, resizes every portion so each day hits your calorie target" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-1.5 px-3 rounded border border-slate-600 transition-colors">⚖️ Fit portions</button>
-            <button data-action="clear-plan" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">Clear</button>
+            <button data-action="clear-plan" data-confirm="Click again to clear the week" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">Clear</button>
           </div>
         </div>
+        <div id="plan-people-note"></div>
         <div id="meals-per-day" class="flex flex-wrap items-center gap-2 text-xs text-slate-300"></div>
         <div id="plan-left" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
-        <div id="plan-rules"></div>
-        <div id="macro-lean"></div>
-        <p class="text-xs text-slate-400">Auto-fill spreads your own meals across the week (keeping to the repeat limit) and adds a snack or two, then tries swapping in other meals wherever that brings a day closer to your targets. For each day it works out the portion sizes (🔗 ratio ingredients scale together) and ↕ range amounts that land on your calories first, then protein, carbs and fat. 📌 fixed ones never change. Picked meals yourself? Hit ⚖️ Fit portions. Don't fancy something? 🎲 swaps it for a different meal that still fits the day. The small box is the portion size; the Ready tab turns it all into grams.</p>
+        <div id="plan-rules" class="pt-3 border-t border-slate-700/60"></div>
+        <div id="macro-lean" class="pt-3 border-t border-slate-700/60"></div>
+        <details class="micro-fold pt-3 border-t border-slate-700/60">
+          <summary><span class="fold-arrow">▸</span> ℹ️ How Auto-fill, Shuffle and Fit portions work</summary>
+          <p class="text-xs text-slate-400 pt-2">Auto-fill spreads your own meals across the week (keeping to the repeat limit) and adds a snack or two, then tries swapping in other meals wherever that brings a day closer to your targets. For each day it works out the portion sizes (🔗 ratio ingredients scale together) and ↕ range amounts that land on your calories first, then protein, carbs and fat. 📌 fixed ones never change. Picked meals yourself? Hit ⚖️ Fit portions. Don't fancy the whole layout? 🎲 Shuffle week deals the meals out differently each time. Don't fancy one meal? Its own 🎲 swaps it for a different one that still fits the day. The small box is the portion size; the Ready tab turns it all into grams.</p>
+        </details>
         <div id="plan-warnings"></div>
       </div>
       <div id="day-picker" class="md:hidden"></div>
@@ -249,7 +266,7 @@
             <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">5. Already at Home</h2>
             <p class="text-xs text-slate-400 mt-1">Check your cupboards, fridge and freezer. Type how much of each you've got (a count for things like eggs and apples, raw grams for the rest) and it comes off the shopping list. <b>All</b> means you've got enough.</p>
           </div>
-          <button data-action="clear-stock" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">Clear</button>
+          <button data-action="clear-stock" data-confirm="Click again to clear" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">Clear</button>
         </div>
         <div id="stock-summary"></div>
       </div>
@@ -534,7 +551,29 @@
         <button data-action="close-json" class="text-slate-400 hover:text-slate-100 px-2 py-1 rounded hover:bg-slate-700" aria-label="Close">✕</button>
       </div>
 
-      <section class="space-y-2">
+      <!-- The built-in example (example-data.js) -->
+      <section id="json-examples" class="space-y-3 rounded-lg border border-emerald-800/50 bg-emerald-950/20 p-4">
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-brand">📋 Example to start from</h3>
+          <p class="text-xs text-slate-400 mt-1"><span id="example-count"></span> Use it to explore how everything works, or as a starting library you change to suit you.</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button data-action="example-add-foods" class="text-left rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 p-3 transition-colors">
+            <b class="block text-sm text-slate-100">🥫 Add the example foods &amp; meals</b>
+            <span class="block text-[11px] text-slate-400">Into your pantry and meals. Keeps everything you have; anything with the same name is left as yours.</span>
+          </button>
+          <button data-action="example-load" data-confirm="Click again — this replaces your data" class="text-left rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 p-3 transition-colors">
+            <b class="block text-sm text-slate-100">📅 Load the whole example</b>
+            <span class="block text-[11px] text-slate-400">Replaces your targets, foods, meals and week with the example's, for a made-up person. You can Undo straight after.</span>
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button data-action="example-copy" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">Copy example JSON</button>
+          <button data-action="example-download" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">Download example .json</button>
+        </div>
+      </section>
+
+      <section class="space-y-2 pt-4 border-t border-slate-700/60">
         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Load a session</h3>
         <p class="text-xs text-slate-400">Replaces your current targets, foods, meals and week. You can Undo straight after.</p>
         <div data-json-box="modal" data-prompt="Load a saved session"></div>
@@ -564,6 +603,7 @@
   <script src="js/target-maths.js"></script>
   <script src="js/state.js"></script>
   <script src="js/helpers.js"></script>
+  <script src="js/people.js"></script>
   <script src="js/micros.js"></script>
   <script src="js/rules.js"></script>
   <script src="js/shopping.js"></script>
@@ -583,6 +623,7 @@
   <script src="js/autofill.js"></script>
   <script src="js/text-export.js"></script>
   <script src="js/share.js"></script>
+  <script src="js/example-data.js"></script>
   <script src="js/json-boxes.js"></script>
   <script src="js/actions.js"></script>
   <script src="js/events.js"></script>

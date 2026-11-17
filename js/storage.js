@@ -32,11 +32,11 @@ function cookingSessions() {
 
   const hasLines = session => Object.keys(session.lines).length > 0;
   const sessions = hasLines(prepSessions[0]) ? [prepSessions[0]] : [];
-  state.plan.forEach((day, d) => {
+  DAYS.forEach((_, d) => {
     const session = { title: `${DAYS[d]}${d === todayIndex() ? ' · today' : ''}`, lines: {}, splits: [] };
-    dayPortions(day).forEach(({ meal, size, flex }) => slotItems(meal, size, flex)
+    allPlans().forEach(({ plan, n }) => dayPortions(plan[d], n).forEach(({ meal, size, flex }) => slotItems(meal, size, flex)
       .filter(p => !meal.prepAhead && (servingsOf(meal) === 1 || p.mode !== 'ratio'))
-      .forEach(p => { if (prepOf(meal, p.food)) add(session, meal, p.food, p.grams); }));
+      .forEach(p => { if (prepOf(meal, p.food)) add(session, meal, p.food, p.grams); })));
     if (hasLines(session)) sessions.push(session);
     if (preps.length > 1 && d === preps[1] && hasLines(prepSessions[1])) sessions.push(prepSessions[1]);
   });
@@ -96,16 +96,20 @@ const STORAGE_PLACES = { fridge: 'fridge', freezer: 'freezer', over: "⚠ past f
 function storagePlan() {
   const preps = prepDays();
   const boxes = [];
-  state.plan.forEach((day, d) => dayPortions(day).forEach(({ key, label, meal, size, flex }) => {
+  // One box per person per slot: `who` is whose box it is
+  allPlans().forEach(({ who, plan, n }) => plan.forEach((day, d) => dayPortions(day, n).forEach(({ key, label, meal, size, flex }) => {
     if (!isBatchMeal(meal)) return;
     const session = sessionFor(d);
     const after = d - preps[session];
     const place = after <= fridgeDaysOf(meal) ? 'fridge' : freezesOf(meal) ? 'freezer' : 'over';
-    boxes.push({ meal, d, key, label, size, flex, session, after, place, weight: portionParts(meal, size, flex).box || 0 });
-  }));
+    boxes.push({ meal, d, key, label, size, flex, session, after, place, who, weight: portionParts(meal, size, flex).box || 0 });
+  })));
   return { preps, boxes };
 }
-const boxesBySlot = boxes => new Map(boxes.map(b => [`${b.d}|${b.key}`, b]));
+// The viewed person's boxes by day and slot (or person `who`'s)
+const boxesBySlot = (boxes, who = state.person) => new Map(boxes.filter(b => b.who === who).map(b => [`${b.d}|${b.key}`, b]));
+// " (Sam)" after a box when two people's boxes are listed together
+const whoTag = b => (twoPeople() ? ` (${personName(b.who)})` : '');
 
 // Boxes grouped by the session that cooks them and their meal → [{ session, meal, boxes }]
 function boxGroups(boxes) {
@@ -120,8 +124,8 @@ function boxGroups(boxes) {
 // "2 boxes fridge (Mon, Tue) · 2 boxes freezer (Thu, Sat) — each ≈ 450g cooked"; weights go per day when they differ
 function boxPlacesText(boxes) {
   const weights = [...new Set(boxes.map(b => fmtWeight(b.weight)))];
-  const twice = d => boxes.filter(b => b.d === d).length > 1;
-  const when = b => `${shortDay(b.d)}${twice(b.d) ? ` ${b.label.toLowerCase()}` : ''}${weights.length > 1 ? ` ≈${fmtWeight(b.weight)}` : ''}`;
+  const twice = d => boxes.filter(b => b.d === d && b.who === boxes[0].who).length > 1;
+  const when = b => `${shortDay(b.d)}${twice(b.d) ? ` ${b.label.toLowerCase()}` : ''}${whoTag(b)}${weights.length > 1 ? ` ≈${fmtWeight(b.weight)}` : ''}`;
   const parts = Object.entries(STORAGE_PLACES).map(([place, label]) => {
     const list = boxes.filter(b => b.place === place);
     return list.length ? `${plural(list.length, 'box', 'boxes')} ${label} (${list.map(when).join(', ')})` : '';
@@ -161,7 +165,7 @@ function thawHtml(boxes, n) {
       ${list.map(g => {
         const key = `thaw:${g.d}|${g.meal.id}`;
         const done = !!state.checked[key];
-        const slots = g.boxes.map(b => b.label.toLowerCase()).join(', ');
+        const slots = g.boxes.map(b => `${b.label.toLowerCase()}${whoTag(b)}`).join(', ');
         const weights = [...new Set(g.boxes.map(b => fmtWeight(b.weight)))];
         return `<label class="flex items-start gap-2 text-sm cursor-pointer">
           <input type="checkbox" data-action="toggle-check" data-id="${esc(key)}" ${done ? 'checked' : ''} class="w-5 h-5 mt-0.5 accent-emerald-400 shrink-0" aria-label="Moved ${esc(g.meal.name)} to the fridge">

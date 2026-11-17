@@ -80,7 +80,7 @@ function macrosFor(kcal, b) {
   return { protein, carbs, fat, notes, clamped, sum, sumOk };
 }
 
-// Everything the Calculate button needs, plus the notes to show under it
+// Everything the live targets need (edit.js), plus the notes to show under them
 function targetsFor(b) {
   const { bmr, formula } = bmrFor(b);
   const pal = Math.min(PAL_MAX, JOB_PAL[b.job] + PAL_PER_TRAINING_HOUR * b.trainingHrs);

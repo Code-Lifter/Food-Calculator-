@@ -27,11 +27,13 @@ function openMealModal() {
   $('mb-name').focus();
 }
 
-function openJsonModal() {
+function openJsonModal(focus) {
   $('json-out').value = JSON.stringify(state, null, 2);
   $('btn-copy-json').textContent = 'Copy JSON';
   $('json-modal').querySelector('[data-json-error]').classList.add('hidden');
+  $('example-count').textContent = `${EXAMPLE_SESSION.foods.length} foods, ${EXAMPLE_SESSION.meals.length} meals and a full week.`;
   $('json-modal').showModal();
+  if (focus === 'examples') $('json-examples').scrollIntoView({ block: 'start' });
 }
 
 function jsonBoxHtml(name, prompt) {
@@ -100,3 +102,45 @@ document.querySelectorAll('[data-json-box]').forEach(el => {
   paste.addEventListener('paste', () => setTimeout(loadPasted));
   paste.addEventListener('blur', loadPasted);
 });
+
+// --- The built-in example (example-data.js) ---
+const exampleJson = () => JSON.stringify(EXAMPLE_SESSION, null, 2);
+
+// Replaces everything with the example, then sizes its week to the example person's targets
+function loadExample() {
+  applyState(JSON.parse(JSON.stringify(EXAMPLE_SESSION)));
+  draft = emptyDraft();
+  applyLiveTargets();
+  fillInputs();
+  state.plan.forEach((day, d) => fitMains(day, state.daily.cals, d));
+  commit();
+  $('json-modal').close();
+  toast('Example loaded — have a look around', { undoable: true });
+}
+
+// Adds the example's foods and meals to what's there. A food or meal you already have (same name) stays yours;
+// example meals that use one of your foods are pointed at yours.
+function addExampleFoods() {
+  const byName = new Map(state.foods.map(f => [f.name.toLowerCase(), f]));
+  const idFor = {};
+  let foods = 0, meals = 0;
+  EXAMPLE_SESSION.foods.forEach(f => {
+    const mine = byName.get(f.name.toLowerCase());
+    if (mine) { idFor[f.id] = mine.id; return; }
+    const id = state.foods.some(x => x.id === f.id) ? uid() : f.id;
+    idFor[f.id] = id;
+    state.foods.push(normaliseFood({ ...JSON.parse(JSON.stringify(f)), id, grams: 0 }));
+    foods++;
+  });
+  const mealNames = new Set(state.meals.map(m => m.name.toLowerCase()));
+  EXAMPLE_SESSION.meals.forEach(m => {
+    if (mealNames.has(m.name.toLowerCase())) return;
+    const copy = JSON.parse(JSON.stringify(m));
+    copy.id = state.meals.some(x => x.id === m.id) ? uid() : m.id;
+    copy.items.forEach(i => { i.foodId = idFor[i.foodId] || i.foodId; });
+    state.meals.push(copy);
+    meals++;
+  });
+  commit();
+  toast(foods || meals ? `Added ${plural(foods, 'food')} and ${plural(meals, 'meal')} from the example` : 'You already have everything in the example', { undoable: foods + meals > 0 });
+}

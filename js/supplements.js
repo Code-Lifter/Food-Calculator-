@@ -13,7 +13,7 @@ const dosesPerWeek = x => x.days.length;
 const weeksPerPack = x => x.servingsPerPack && dosesPerWeek(x) ? x.servingsPerPack / dosesPerWeek(x) : null;
 // Price per dose × doses this week; only supplements with both a pack price and a pack size count
 function suppWeekCost() {
-  const priced = state.supplements.filter(x => x.pricePerPack != null && x.servingsPerPack > 0);
+  const priced = allSupplements().filter(x => x.pricePerPack != null && x.servingsPerPack > 0);
   return { total: priced.reduce((t, x) => t + x.pricePerPack / x.servingsPerPack * dosesPerWeek(x), 0), priced: priced.length };
 }
 // Ready tab, day by day: supplements sit under the meal they're taken with; the rest (training, bed, any time,
@@ -33,15 +33,16 @@ const suppText = d => {
 };
 // Supplements aren't foods, so they never go in the basket: a section of their own at the end of the shopping list
 function suppShopHtml() {
-  if (!state.supplements.length) return '';
+  const supps = allSupplements();
+  if (!supps.length) return '';
   return `
     <div class="pt-3 border-t border-slate-700/60 space-y-1">
       <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">💊 Supplements</h3>
       <ul class="divide-y divide-slate-700/60">
-        ${state.supplements.map(x => {
+        ${supps.map(x => {
           const key = `supp:${x.id}`, weeks = weeksPerPack(x);
           return `<li class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
-            <span class="flex-1 min-w-0 text-slate-100"><b>${esc(x.name)}</b> — ${esc(doseText(x))} × ${dosesPerWeek(x)} this week${weeks != null ? ` <span class="text-xs text-slate-400">· a pack lasts ≈ ${fmt1(weeks)} weeks</span>` : ''}</span>
+            <span class="flex-1 min-w-0 text-slate-100"><b>${esc(x.name)}</b>${esc(x.owner)} — ${esc(doseText(x))} × ${dosesPerWeek(x)} this week${weeks != null ? ` <span class="text-xs text-slate-400">· a pack lasts ≈ ${fmt1(weeks)} weeks</span>` : ''}</span>
             <label class="flex items-center gap-2 text-xs text-slate-300 shrink-0"><input type="checkbox" data-action="toggle-check" data-id="${esc(key)}" ${state.checked[key] ? 'checked' : ''} class="w-5 h-5 accent-emerald-400"> Need to rebuy</label>
           </li>`;
         }).join('')}
@@ -57,9 +58,9 @@ function renderSupplements() {
         <b class="text-slate-200">${esc(x.name)}</b> <span class="text-slate-400">· ${esc(doseText(x))} · ${esc(timingLabel(x.timing).toLowerCase())} · ${daysText(x.days)}</span>
         ${x.kcal || x.protein ? `<div class="text-[11px] text-slate-400">${fmt(x.kcal)} kcal · ${macroLine(x)} per dose — counts toward your day</div>` : ''}
       </div>
-      <div class="flex gap-3 text-xs shrink-0">
-        <button data-action="edit-supp" data-id="${esc(x.id)}" class="text-slate-400 hover:text-brand">Edit</button>
-        <button data-action="delete-supp" data-id="${esc(x.id)}" class="text-slate-400 hover:text-rose-400">Delete</button>
+      <div class="flex gap-1.5 shrink-0">
+        <button data-action="edit-supp" data-id="${esc(x.id)}" class="btn-edit">✏️ Edit</button>
+        <button data-action="delete-supp" data-id="${esc(x.id)}" data-confirm="Click again to delete" class="btn-del">🗑 Delete</button>
       </div>
     </div>`).join('')
     : '<p class="text-xs text-slate-400">None yet. Supplements with calories (like whey) count toward your day; vitamins and minerals add to the micronutrient totals on the Ready tab.</p>';
