@@ -4,10 +4,12 @@
 const timingLabel = t => (TIMINGS.find(([k]) => k === t) || TIMINGS[TIMINGS.length - 1])[1];
 const doseText = x => ['capsule', 'scoop'].includes(x.doseUnit) ? plural(x.dose, x.doseUnit) : `${fmt1(x.dose)} ${x.doseUnit}`;
 function daysText(days) {
-  if (days.length === 7) return 'every day';
-  if (days.join() === '0,1,2,3,4') return 'weekdays';
-  if (days.join() === '5,6') return 'weekends';
-  return days.length ? days.map(d => DAYS[d].slice(0, 3)).join(', ') : 'no days';
+  if (days.length === DAYS.length) return 'every day';
+  // Weekdays / weekends by the real weekday, wherever the plan starts
+  const all = test => ALL_DAYS.filter(d => test(weekdayOf(d)));
+  if (days.length > 1 && days.join() === all(w => w < 5).join()) return 'weekdays';
+  if (days.length > 1 && days.join() === all(w => w >= 5).join()) return 'weekends';
+  return days.length ? days.map(dayShort).join(', ') : 'no days';
 }
 const dosesPerWeek = x => x.days.length;
 const weeksPerPack = x => x.servingsPerPack && dosesPerWeek(x) ? x.servingsPerPack / dosesPerWeek(x) : null;
@@ -66,10 +68,15 @@ function renderSupplements() {
     : '<p class="text-xs text-slate-400">None yet. Supplements with calories (like whey) count toward your day; vitamins and minerals add to the micronutrient totals on the Ready tab.</p>';
 }
 
+// The Days checkboxes follow the plan's days, so they're rebuilt each time the form opens
+function renderSuppDays() {
+  $('sp-days').innerHTML = DAYS.map((name, d) => `<label class="flex items-center gap-1.5 text-sm text-slate-200 cursor-pointer"><input type="checkbox" data-supp-day value="${d}" checked class="w-4 h-4 accent-emerald-400">${dayShort(d)}</label>`).join('');
+}
 function openSuppModal(x = null) {
   editingSuppId = x ? x.id : null;
   $('supp-form').reset();
   $('supp-modal-title').textContent = x ? 'Edit Supplement' : 'Add a Supplement';
+  renderSuppDays();
   document.querySelectorAll('[data-supp-day]').forEach(b => { b.checked = x ? x.days.includes(Number(b.value)) : true; });
   fillMicros('sp', x ? x.micros : {});
   if (x) {

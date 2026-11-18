@@ -18,13 +18,15 @@ const TAGS = {
 // Weekly food rules. They count breakfasts, lunches and dinners (not snacks); `tag` rules count meals carrying that tag.
 // When a week can't meet them all, they're relaxed in this order.
 const RULE_DEFS = [
-  { key: 'maxRepeats', kind: 'max', label: 'Same meal repeats', unit: 'at most', limit: 7 * MEALS_MAX }
+  { key: 'maxRepeats', kind: 'max', label: 'Same meal repeats', unit: 'at most', limit: WEEK_DAYS_MAX * MEALS_MAX }
 ];
 const DEFAULT_RULES = { maxRepeats: 2 };
 
 // `sizes` holds portions eaten per main slot when it isn't 1 (e.g. { dinner: 1.1 })
 const MEAL_SEARCH_AT = 20; // from this many meals, week slots use a search box instead of a dropdown
-const todayIndex = () => (new Date().getDay() + 6) % 7; // Monday = 0
+// Where today falls in the plan: days since the plan's start weekday (0–6), or -1 when today is past the plan
+const todayPos = () => ((new Date().getDay() + 6) % 7 - state.week.start + 7) % 7;
+const todayIndex = () => todayPos() < DAYS.length ? todayPos() : -1;
 const cloneDay = day => JSON.parse(JSON.stringify(day));
 
 const emptyDay = () => ({ breakfast: '', lunch: '', dinner: '', meal4: '', meal5: '', meal6: '', snacks: [], sizes: {}, flex: {} });
@@ -46,12 +48,13 @@ const defaultState = () => withPeople({
   weightMode: 'raw', // how meal weights are shown and typed: 'raw' or 'cooked'
   energyUnit: 'kJ', // how the food form takes energy: 'kJ' (AU labels) or 'kcal'; foods always store kcal
   currency: 'GBP',
-  viewDay: todayIndex(), // the day shown on phones in the week grid
+  viewDay: 0, // the day shown on phones in the week grid (set to today at start-up)
   rules: { ...DEFAULT_RULES },
   split: {}, // two people: { 'day|slot': true } where each eats their own main meal instead of the same one
   stock: {}, // { foodId: grams already at home } — taken off the shopping list
   macroLean: { protein: 0, carbs: 0, fat: 0 }, // how far auto-fill aims each macro off its target (−0.2 … +0.2)
-  prep: { mode: 'freezer', second: 2 }, // 'freezer' = one prep day (Sunday) + freezer; 'two' = Sunday and the evening of day `second`
+  week: { start: 0, days: 7 }, // the plan starts on weekday `start` (Monday = 0) and runs `days` days (1–10)
+  prep: { mode: 'freezer', second: 2 }, // 'freezer' = one prep day (the day before the plan) + freezer; 'two' = that and the evening of day `second`
   tab: 'target'
 });
 // One or two people share the household (people.js). The fields above — stats, daily, plan, macroLean,

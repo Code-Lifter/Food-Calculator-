@@ -80,6 +80,25 @@ function syncPartners() {
   });
 }
 
+// Step 1's prep week: the plan starts on weekday `start` and runs `n` days. Everyone's plan keeps its days by
+// position (day 1 stays day 1 when the start moves); added days start empty and dropped ones go
+function setWeek(start, n) {
+  const oldN = DAYS.length;
+  stashPerson();
+  state.week = { start, days: n };
+  setWeekShape(start, n);
+  state.people.forEach(p => {
+    p.plan = DAYS.map((_, d) => p.plan[d] || emptyDay());
+    // An every-day supplement stays every day; a picked set keeps the days still in the plan
+    p.supplements.forEach(x => { x.days = x.days.length === oldN ? [...ALL_DAYS] : x.days.filter(d => d < n); });
+  });
+  Object.keys(state.split).forEach(k => { if (Number(k.split('|')[0]) >= n) delete state.split[k]; });
+  if (n < 2) state.prep.mode = 'freezer';
+  state.prep.second = Math.min(state.prep.second, lastSecondPrep());
+  state.viewDay = Math.min(state.viewDay, n - 1);
+  loadPerson(state.person);
+}
+
 // Empties everyone's week (a new week, or Clear)
 function clearAllPlans() {
   stashPerson();

@@ -1,4 +1,4 @@
-// render-week.js — Step 4, Week: weekly rules card and the 7-day plan.
+// render-week.js — Step 4, Week: weekly rules card and the plan (1–10 days from the chosen start day).
 
 // Weekly food rules: same traffic light as the cards above — green met, amber at the limit or one short, red broken
 function renderRules() {
@@ -28,7 +28,7 @@ function renderRules() {
               <div class="flex flex-wrap items-center justify-between gap-x-1 gap-y-0.5">
                 <span class="text-lg font-bold ${t.text}">${t.icon ? `<span aria-hidden="true">${t.icon}</span> ` : ''}${count}${def.key === 'maxRepeats' ? '×' : ''}<span class="sr-only"> — ${t.words}</span></span>
                 <label class="flex items-center gap-1 text-[10px] text-slate-400">${def.unit}
-                  <input type="number" min="${def.key === 'maxRepeats' ? 1 : 0}" max="${def.key === 'maxRepeats' ? 7 * MEALS_MAX : 21}" step="1" value="${target}" data-action="set-rule" data-rule="${def.key}"
+                  <input type="number" min="${def.key === 'maxRepeats' ? 1 : 0}" max="${def.key === 'maxRepeats' ? WEEK_DAYS_MAX * MEALS_MAX : 21}" step="1" value="${target}" data-action="set-rule" data-rule="${def.key}"
                     aria-label="${def.label}: ${def.unit}" class="w-11 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-xs text-slate-100 text-center focus:outline-none focus:border-brand">
                 </label>
               </div>
@@ -116,18 +116,18 @@ function renderPlan() {
   const view = state.viewDay;
   $('day-picker').innerHTML = `
     <div class="flex items-center gap-1">
-      <button data-action="view-day" data-day="${(view + 6) % 7}" aria-label="Previous day" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300">‹</button>
-      <div class="grid grid-cols-7 gap-1 flex-1" role="tablist" aria-label="Day">
+      <button data-action="view-day" data-day="${(view + DAYS.length - 1) % DAYS.length}" aria-label="Previous day" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300">‹</button>
+      <div class="grid gap-1 flex-1" style="grid-template-columns: repeat(${DAYS.length}, minmax(0, 1fr))" role="tablist" aria-label="Day">
         ${DAYS.map((name, d) => {
           const cals = dayTotals(state.plan[d], d).cals;
           const words = !cals ? 'nothing planned' : !target ? `${fmt(cals)} kcal` : tolerance(cals, target).words;
           return `<button data-action="view-day" data-day="${d}" role="tab" aria-selected="${d === view}" aria-label="${name}, ${words}"
             class="py-1.5 rounded-lg text-xs font-semibold ${d === view ? 'bg-brand text-slate-950' : 'bg-slate-800 text-slate-300 border border-slate-700'}">
-            ${name.slice(0, 3)}<span class="block mx-auto mt-1 w-1.5 h-1.5 rounded-full ${cals ? barColor(cals, target) : 'bg-slate-600'}"></span>
+            ${dayShort(d)}<span class="block mx-auto mt-1 w-1.5 h-1.5 rounded-full ${cals ? barColor(cals, target) : 'bg-slate-600'}"></span>
           </button>`;
         }).join('')}
       </div>
-      <button data-action="view-day" data-day="${(view + 1) % 7}" aria-label="Next day" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300">›</button>
+      <button data-action="view-day" data-day="${(view + 1) % DAYS.length}" aria-label="Next day" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300">›</button>
     </div>`;
 
   const search = state.meals.length >= MEAL_SEARCH_AT;
@@ -217,7 +217,7 @@ function renderPlan() {
         </div>
         ${dayExtrasHtml(day, d, dt, ul)}
         <div class="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-700/60 text-xs">
-          ${d > 0 ? `<button data-action="same-as-yesterday" data-day="${d}" class="${miniBtn}">⇐ Same as ${DAYS[d - 1].slice(0, 3)}</button>` : ''}
+          ${d > 0 ? `<button data-action="same-as-yesterday" data-day="${d}" class="${miniBtn}">⇐ Same as ${dayShort(d - 1)}</button>` : ''}
           <button data-action="copy-to-weekdays" data-day="${d}" class="${miniBtn}">Copy to weekdays</button>
           <select data-action="swap-day" data-day="${d}" aria-label="Swap ${DAYS[d]} with another day" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-300">
             <option value="">⇄ Swap with…</option>

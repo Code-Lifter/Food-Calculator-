@@ -70,7 +70,7 @@ function ulWarnings() {
       const amount = (UL_SUPPLEMENTS_ONLY.has(k) ? 0 : m.food[k] || 0) + (m.supp[k] || 0);
       if (amount <= limit) return;
       const [, label, unit] = nutrient(k);
-      out.push({ d, k, amount, text: `${label} ${fmtMicro(amount)} ${unit}${UL_SUPPLEMENTS_ONLY.has(k) ? ' from supplements' : ''} on ${DAYS[d].slice(0, 3)} — above the upper level (${fmtMicro(limit)} ${unit}). Check with a GP or pharmacist.` });
+      out.push({ d, k, amount, text: `${label} ${fmtMicro(amount)} ${unit}${UL_SUPPLEMENTS_ONLY.has(k) ? ' from supplements' : ''} on ${dayShort(d)} — above the upper level (${fmtMicro(limit)} ${unit}). Check with a GP or pharmacist.` });
     });
   });
   return out;

@@ -1,10 +1,12 @@
 // render-ready.js — Step 5, Ready: box labels, storage/cooking/cost/today cards, shopping list, day by day.
 
-// Calendar date of a plan day in the current week (Monday = 0; -1 = the Sunday before)
+// Calendar date of a plan day (0 = the plan's first day; -1 = the prep day before it). The plan is the one
+// running today, or, if today falls after it, the next one
 function planDate(d) {
   const date = new Date();
   date.setHours(12, 0, 0, 0);
-  date.setDate(date.getDate() - todayIndex() + d);
+  const pos = todayPos();
+  date.setDate(date.getDate() - (pos < DAYS.length ? pos : pos - 7) + d);
   return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
@@ -61,13 +63,13 @@ function storageCard() {
         <button data-action="print-labels" class="no-print text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-1.5 px-3 rounded border border-slate-600 transition-colors">🏷️ Print box labels <span class="font-normal text-slate-400">· all on one page</span></button>
       </div>
       <p class="text-xs text-slate-400">${state.prep.mode === 'two'
-        ? `Two prep days: Sunday, and ${DAYS[state.prep.second]} evening.`
-        : 'One prep day on Sunday: boxes eaten after their fridge life go in the freezer.'}
+        ? `Two prep days: ${prepDayName()}, and ${DAYS[state.prep.second]} evening.`
+        : `One prep day on ${prepDayName()}: boxes eaten after their fridge life go in the freezer.`}
         <button data-goto="target" class="no-print underline">Change prep style</button></p>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
         ${cell('Fridge boxes', count('fridge') + over.length, 'from the prep session')}
         ${cell('Freezer boxes', count('freezer'), count('freezer') ? 'thaw in the fridge the night before' : '')}
-        ${cell('Most in the fridge', `${peak} at once`, `${peakNight < 0 ? 'Sunday' : DAYS[peakNight]} night`)}
+        ${cell('Most in the fridge', `${peak} at once`, `${peakNight < 0 ? prepDayName() : DAYS[peakNight]} night`)}
       </div>
       ${over.length ? `<div class="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">⚠ Past their fridge life and the meal doesn't freeze: ${over.map(b => `<b>${esc(b.meal.name)}</b> (${DAYS[b.d]} ${b.label.toLowerCase()}, ${b.after} days after prep)`).join(', ')}. Move them earlier in the week on the Week tab${state.prep.mode === 'two' ? '' : ', or switch to two prep days'}.</div>` : ''}
     </div>`;
@@ -101,6 +103,12 @@ function cookingCard() {
 // Just today's meals (one block per person)
 function todayCard() {
   const d = todayIndex();
+  // Today falls after a short plan: say when the next one starts instead
+  if (d < 0) return `
+    <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md">
+      <h2 class="text-lg font-bold text-slate-100">📍 Today</h2>
+      <p class="text-sm text-slate-400">Not part of this plan — the next ${plural(DAYS.length, 'day')} start ${esc(planDate(0))}, with prep on ${esc(planDate(-1))}.</p>
+    </div>`;
   const { boxes } = storagePlan();
   const person = () => {
     const day = state.plan[d], target = state.daily.cals;
@@ -155,7 +163,7 @@ function costCard() {
         ${shop.priced ? `
         ${cell('This shop', money(shop.total), 'whole packs')}
         ${cell('Food eaten', money(eaten), 'this week')}
-        ${cell('Per day', money(eaten / 7))}
+        ${cell('Per day', money(eaten / DAYS.length))}
         ${cell('Per meal', meals ? money(eaten / meals) : '—', meals ? `average of ${meals} meals & snacks` : 'plan your week first')}` : ''}
         ${supp.priced ? cell('💊 Supplements', money(supp.total), 'per week, on top of food') : ''}
       </div>
@@ -280,7 +288,7 @@ function renderSummary() {
 
     <div class="${card}">
       <h2 class="text-lg font-bold text-slate-100">🛒 Shopping list</h2>
-      ${topUp.length ? '<h3 class="text-sm font-bold text-brand">Main shop — before prep 1 (Sunday)</h3>' : ''}
+      ${topUp.length ? `<h3 class="text-sm font-bold text-brand">Main shop — before prep 1 (${prepDayName()})</h3>` : ''}
       ${main.length ? shopListHtml(main, '', used) : emptyNote('Nothing on your shopping list yet.')}
       ${topUp.length ? `
         <div class="pt-3 border-t border-slate-700/60 space-y-2">

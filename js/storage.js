@@ -74,7 +74,7 @@ const portionItemsHtml = (meal, size, flex, box = null) => {
 };
 
 // --- Storage: prep sessions, batch boxes, fridge or freezer ---
-// Prep 1 is the Sunday before the week (day -1); "Two prep days" adds a session on the evening of state.prep.second.
+// Prep 1 is the day before the plan starts (day -1, Sunday for a Monday start); "Two prep days" adds a session on the evening of state.prep.second.
 // A box eaten on day d comes from the latest session before d, and has sat in the fridge d − (prep day) days by then.
 const fridgeDaysOf = m => m.fridgeDays >= 1 ? Math.min(7, Math.round(m.fridgeDays)) : 3;
 const freezesOf = m => m.freezes === true;
@@ -82,13 +82,16 @@ const freezesOf = m => m.freezes === true;
 // Batch meals are cooked on a prep day and boxed: a multi-portion recipe with 🔗 ratio ingredients,
 // or a 🍱 make-ahead meal (a one-portion recipe made for the whole week, each box holding everything)
 const isBatchMeal = m => m.prepAhead === true || (servingsOf(m) > 1 && m.items.some(i => modeOf(i) === 'ratio'));
-const prepDays = () => state.prep.mode === 'two' ? [-1, state.prep.second] : [-1];
+// The second session is the evening of one of the plan's days, never the last (nothing is left to cook for)
+const lastSecondPrep = () => Math.max(0, DAYS.length - 2);
+const twoPrepDays = () => state.prep.mode === 'two' && DAYS.length > 1;
+const prepDays = () => twoPrepDays() ? [-1, Math.min(state.prep.second, lastSecondPrep())] : [-1];
 const sessionFor = d => prepDays().reduce((best, day, i) => day < d ? i : best, 0);
 const daysAfterPrep = d => d - prepDays()[sessionFor(d)];
-const shortDay = d => d < 0 ? 'Sun' : DAYS[d].slice(0, 3);
+const shortDay = d => d < 0 ? prepDayName().slice(0, 3) : dayShort(d);
 const prepTitle = (i, preps) => preps.length > 1
-  ? `Prep ${i + 1} — ${preps[i] < 0 ? 'Sunday, before the week' : `${DAYS[preps[i]]} evening`}`
-  : 'Prep day — Sunday, before the week';
+  ? `Prep ${i + 1} — ${preps[i] < 0 ? `${prepDayName()}, before the week` : `${DAYS[preps[i]]} evening`}`
+  : `Prep day — ${prepDayName()}, before the week`;
 const STORAGE_PLACES = { fridge: 'fridge', freezer: 'freezer', over: "⚠ past fridge life, doesn't freeze" };
 
 // Every batch box the week eats: which session cooks it, days from prep to plate, and where it waits:

@@ -55,7 +55,7 @@ function shoppingText() {
   const { main, topUp } = shopLists();
   const shop = shopCost();
   const body = topUp.length
-    ? `MAIN SHOP (before prep 1, Sunday)\n\n${section(main)}\n\nMID-WEEK TOP-UP (${DAYS[state.prep.second]}, before prep 2)\n\n${section(topUp)}`
+    ? `MAIN SHOP (before prep 1, ${prepDayName()})\n\n${section(main)}\n\nMID-WEEK TOP-UP (${DAYS[state.prep.second]}, before prep 2)\n\n${section(topUp)}`
     : section(main);
   const supps = allSupplements().map(x => {
     const weeks = weeksPerPack(x);

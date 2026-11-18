@@ -42,6 +42,7 @@ input[type="number"] { -moz-appearance: textfield; }
   background: #334155; border: 1px solid #475569; transition: background-color .15s;
 }
 .mb-step:hover { background: #475569; }
+.mb-step:disabled { opacity: .4; cursor: not-allowed; background: #334155; }
 .mb-toggle {
   display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; padding: 0.625rem 0.75rem;
   border-radius: 0.5rem; border: 1px solid #334155; background: #0f172a; font-size: 0.875rem; color: #e2e8f0;

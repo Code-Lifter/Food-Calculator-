@@ -13,6 +13,12 @@ const actions = {
     commit();
     toast(planIsEmpty() ? 'Prep style set' : 'Prep style changed — re-run Auto-fill week to plan around it', { undoable: true });
   },
+  'set-week-days': el => {
+    const n = Number(el.dataset.value);
+    if (!Number.isInteger(n) || n < WEEK_DAYS_MIN || n > WEEK_DAYS_MAX || n === DAYS.length) return;
+    setWeek(state.week.start, n);
+    commit('week-days');
+  },
   'toggle-short-life': el => {
     const f = foodById(el.dataset.id);
     if (!f) return;
@@ -317,7 +323,7 @@ const actions = {
   },
   'copy-to-weekdays': el => {
     const d = Number(el.dataset.day);
-    for (let i = 0; i < 5; i++) if (i !== d) state.plan[i] = cloneDay(state.plan[d]);
+    DAYS.forEach((_, i) => { if (i !== d && weekdayOf(i) < 5) state.plan[i] = cloneDay(state.plan[d]); });
     commit();
     toast(`Copied ${DAYS[d]} to every weekday`);
   },
@@ -335,7 +341,7 @@ const actions = {
   },
   'load-share': () => {
     applyState(incomingShare.state);
-    Object.assign(state, { tab: 'summary', viewDay: todayIndex() });
+    Object.assign(state, { tab: 'summary', viewDay: Math.max(0, todayIndex()) });
     incomingShare = null;
     draft = emptyDraft();
     fillInputs();
@@ -393,7 +399,7 @@ const actions = {
     clearAllPlans();
     state.checked = {};
     state.stock = {};
-    state.viewDay = todayIndex();
+    state.viewDay = Math.max(0, todayIndex());
     commit();
     toast('New week started — your meals and foods are kept', { undoable: true });
   },
@@ -422,9 +428,16 @@ const changeActions = {
     if (CURRENCIES[el.value]) state.currency = el.value;
     commit();
   },
+  'set-week-start': el => {
+    const start = Number(el.value);
+    if (!Number.isInteger(start) || start < 0 || start > 6) return;
+    setWeek(start, DAYS.length);
+    commit();
+    toast(`Plan now starts on ${WEEKDAYS[start]} — prep on ${prepDayName()}`, { undoable: true });
+  },
   'set-prep-day': el => {
     const d = Number(el.value);
-    if (Number.isInteger(d) && d >= 0 && d <= 5) state.prep.second = d;
+    if (Number.isInteger(d) && d >= 0 && d <= lastSecondPrep()) state.prep.second = d;
     commit();
   },
   // Amounts are typed in the current raw/cooked mode; stored raw
@@ -487,7 +500,7 @@ const changeActions = {
   'set-rule': el => {
     const def = RULE_DEFS.find(d => d.key === el.dataset.rule);
     if (!def) return;
-    const max = def.key === 'maxRepeats' ? 7 * MEALS_MAX : 21;
+    const max = def.key === 'maxRepeats' ? WEEK_DAYS_MAX * MEALS_MAX : 21;
     const n = Math.round(parseFloat(el.value));
     state.rules[def.key] = Number.isFinite(n) ? Math.min(max, Math.max(def.key === 'maxRepeats' ? 1 : 0, n)) : DEFAULT_RULES[def.key];
     commit();

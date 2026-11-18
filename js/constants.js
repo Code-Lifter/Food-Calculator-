@@ -1,7 +1,15 @@
 // constants.js — Fixed lists: storage key, days, meal slots and types, macros, micronutrients and their targets, supplement options.
 
 const STORAGE_KEY = 'weekly_meal_planner_v2';
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+// The plan runs for state.week.days days (1–10) from the weekday state.week.start (Monday = 0).
+// DAYS and ALL_DAYS are filled in place by setWeekShape(), so every `DAYS.map`/`DAYS.length` follows the setting.
+const WEEK_DAYS_MIN = 1, WEEK_DAYS_MAX = 10;
+const DAYS = [...WEEKDAYS];
+const weekdayOf = d => ((state.week.start + d) % 7 + 7) % 7; // d = -1 is the prep day before the plan
+// Past a week the names repeat, so the second Monday is "Monday (2)"
+const dayShort = d => `${WEEKDAYS[weekdayOf(d)].slice(0, 3)}${d >= 7 ? ' 2' : ''}`;
+const prepDayName = () => WEEKDAYS[weekdayOf(-1)];
 // Main meal slots. How many a day is a setting (2–6): 2 = lunch + dinner, 3 = breakfast, lunch, dinner,
 // 4–6 add Meal 4…6, which take any main meal
 const MAIN_SLOTS = [['breakfast', 'Breakfast'], ['lunch', 'Lunch'], ['dinner', 'Dinner'], ['meal4', 'Meal 4'], ['meal5', 'Meal 5'], ['meal6', 'Meal 6']];
@@ -73,3 +81,7 @@ const DOSE_UNITS = ['g', 'mg', 'µg', 'capsule', 'scoop', 'ml'];
 const TIMINGS = [['breakfast', 'With breakfast'], ['lunch', 'With lunch'], ['dinner', 'With dinner'], ['pre-training', 'Pre-training'],
   ['post-training', 'Post-training'], ['bed', 'Before bed'], ['any', 'Any time']];
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+function setWeekShape(start, n) {
+  DAYS.splice(0, DAYS.length, ...Array.from({ length: n }, (_, d) => `${WEEKDAYS[(start + d) % 7]}${d >= 7 ? ' (2)' : ''}`));
+  ALL_DAYS.splice(0, ALL_DAYS.length, ...DAYS.map((_, d) => d));
+}

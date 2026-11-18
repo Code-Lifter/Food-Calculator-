@@ -21,7 +21,7 @@ js/*.js             the app, split by job (26 files, see "Code map")
 | `target` | 🎯 Targets | stats → BMR → daily calories/macros |
 | `shopping` | 🥫 Single Food Pantry | `renderShopping()` — a searchable library of single foods (per 100g, micronutrient chips, pack/price, ✏️ Edit). No buy amounts here |
 | `meals` | 🍽️ Meals | `renderMeals()` — meal builder (🔗 ratio / 📌 fixed / ↕ range ingredients) |
-| `plan` | 📅 Week | `renderPlan()` — 7-day plan, auto-fill, ⚖️ fit portions |
+| `plan` | 📅 Week | `renderPlan()` — 1–10 day plan, auto-fill, ⚖️ fit portions |
 | `stock` | 🏠 At home | `renderStock()` — how much of each needed food is already in the house; comes off the shopping list |
 | `summary` | ✅ Ready | `renderSummary()` — shopping list, `storageCard()`, cooking plan, Day by day (each day shows `thawHtml()` — that night's freezer → fridge moves as ticks in `state.checked['thaw:<day eaten>|<mealId>']`), `microCard()` |
 
@@ -67,6 +67,7 @@ The internal id `shopping` was kept when the tab was renamed to "Single Food Pan
 - Escape any user text going into HTML with `esc()`.
 
 ## Data model notes
+- **The plan isn't fixed to Monday–Sunday.** `state.week = { start, days }` (household-wide, set in step 1's Prep Week card): the plan starts on weekday `start` (Monday = 0) and runs `days` days (1–10). `DAYS` and `ALL_DAYS` are filled **in place** by `setWeekShape()` (called from `applyState` and `setWeek`), so loop with `DAYS.map`/`DAYS.length`, never 7. Day `d`'s real weekday is `weekdayOf(d)`; short names go through `dayShort(d)` (past day 7 names repeat: "Monday (2)", "Mon 2"); the prep day before the plan (d = −1) is `prepDayName()`. `todayIndex()` is −1 when today falls after a short plan. `setWeek()` (people.js) resizes everyone's plan by position and keeps every-day supplements every day.
 - Foods store nutrition **per 100 g**: `cals` (always kcal internally; kJ is display only), `protein`, `carbs`, `fat`, `fibre`, and optional `micros` ({ key: number }).
 - A missing micronutrient key means **unknown, not zero**. `cleanMicros()` keeps only real numbers. The nutrient list is `NUTRIENTS`, grouped by `NUTRIENT_GROUPS`.
 - Batch meals (`isBatchMeal`) are cooked on a prep day and boxed: either `servings > 1` with 🔗 ratio ingredients (only the ratio part goes in the box; extras are added on the day), or `prepAhead: true` (🍱 a one-portion recipe made for the whole week; the whole portion goes in the box). `storagePlan()` puts each box in the fridge, the freezer (after `fridgeDays`, if `freezes`) or flags it as 'over'.

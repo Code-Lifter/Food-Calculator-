@@ -27,7 +27,8 @@ function normalisePerson(p, fallbackMeals) {
     const v = Number(lean[k]);
     return [k, Number.isFinite(v) ? Math.min(0.2, Math.max(-0.2, Math.round(v * 20) / 20)) : 0];
   }));
-  const plan = Array.isArray(p.plan) && p.plan.length === DAYS.length ? p.plan : emptyPlan();
+  // A plan saved with a different number of days keeps the days that still fit; new ones start empty
+  const plan = DAYS.map((_, d) => Array.isArray(p.plan) && p.plan[d] && typeof p.plan[d] === 'object' ? p.plan[d] : emptyDay());
   const daily = { ...base.daily, ...p.daily };
   // Saves from before live targets: live if the saved targets are empty or match the stats; hand-typed ones are kept
   if (typeof (p.stats || {}).autoTargets !== 'boolean') {
@@ -49,6 +50,14 @@ function applyState(data) {
   const base = defaultState();
   state = { ...base, ...data };
   // Two-person sessions keep each person in `people`; older ones are a single person at the top level
+  // Sessions saved before the week setting run Monday to Sunday. Set first: the plans below are sized to it
+  const wk = data.week && typeof data.week === 'object' ? data.week : {};
+  const start = Number(wk.start), days = Number(wk.days);
+  state.week = {
+    start: Number.isInteger(start) && start >= 0 && start <= 6 ? start : 0,
+    days: Number.isInteger(days) && days >= WEEK_DAYS_MIN && days <= WEEK_DAYS_MAX ? days : 7
+  };
+  setWeekShape(state.week.start, state.week.days);
   const saved = Array.isArray(data.people) && data.people.length ? data.people.slice(0, MAX_PEOPLE) : [data];
   state.people = saved.map(p => normalisePerson(p && typeof p === 'object' ? p : {}, data.mealsPerDay));
   loadPerson(Number.isInteger(data.person) && state.people[data.person] ? data.person : 0);
@@ -57,7 +66,8 @@ function applyState(data) {
   // Sessions saved before step 5 have nothing at home
   state.stock = Object.fromEntries(Object.entries(data.stock && typeof data.stock === 'object' ? data.stock : {})
     .map(([id, g]) => [id, Math.round(Number(g))]).filter(([, g]) => g > 0));
-  state.split = Object.fromEntries(Object.entries(data.split && typeof data.split === 'object' ? data.split : {}).filter(([k, v]) => v === true && /^[0-6]\|\w+$/.test(k)));
+  state.split = Object.fromEntries(Object.entries(data.split && typeof data.split === 'object' ? data.split : {}).filter(([k, v]) => v === true && /^\d+\|\w+$/.test(k) && Number(k.split('|')[0]) < DAYS.length));
+  state.viewDay = Number.isInteger(data.viewDay) && data.viewDay >= 0 && data.viewDay < DAYS.length ? data.viewDay : Math.max(0, todayIndex());
   // Food lists written by hand or by other tools are read too: duplicate ids keep the first one
   const seen = new Set();
   state.foods = (Array.isArray(data.foods) ? data.foods : [])
@@ -84,10 +94,10 @@ function applyState(data) {
     const n = Number(data.rules && data.rules[key]);
     if (Number.isFinite(n) && n >= 0) state.rules[key] = Math.round(n);
   });
-  // Sessions saved before prep styles use one prep day; a bad second day falls back to Wednesday
+  // Sessions saved before prep styles use one prep day; a bad second day falls back to the third day
   const prep = data.prep || {};
   const second = Number(prep.second);
-  state.prep = { mode: prep.mode === 'two' ? 'two' : 'freezer', second: Number.isInteger(second) && second >= 0 && second <= 5 ? second : 2 };
+  state.prep = { mode: prep.mode === 'two' ? 'two' : 'freezer', second: Number.isInteger(second) && second >= 0 && second <= lastSecondPrep() ? second : Math.min(2, lastSecondPrep()) };
 }
 // Other names for food fields (kcal, pack, price, unitWeight, simple aisle names) map onto this planner's
 const ALT_AISLES = { protein: 'meat & fish', meat: 'meat & fish', fish: 'meat & fish', carbs: 'dry goods', fats: 'dry goods',
@@ -184,7 +194,7 @@ function sum(a, b) {
 }
 function weekly() {
   const t = zero();
-  MACROS.forEach(([k]) => { t[k] = state.daily[k] * 7; });
+  MACROS.forEach(([k]) => { t[k] = state.daily[k] * DAYS.length; });
   return t;
 }
 // An ingredient's data: the basket food, or the snapshot kept on the meal if that food was removed

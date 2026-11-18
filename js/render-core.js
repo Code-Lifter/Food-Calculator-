@@ -93,7 +93,7 @@ function renderTarget() {
   const wt = weekly();
   $('weekly-output').innerHTML = `
     <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50 flex flex-wrap justify-between items-center text-xs text-slate-300 gap-2">
-      <span>Weekly Target (× 7 days):</span>
+      <span>Plan Target (× ${plural(DAYS.length, 'day')}):</span>
       <div class="flex gap-3 font-semibold text-brand">
         <span>${fmt(wt.cals)} kcal</span>
         <span>${fmt(wt.protein)}g P</span>
@@ -115,21 +115,40 @@ function renderTarget() {
     </div>`;
 }
 
-// Prep style: one Sunday session plus the freezer, or a second session mid-week
+// Prep style: one session the day before the plan plus the freezer, or a second session part-way through
 function renderPrep() {
   const p = state.prep;
   const btn = (value, label) => `<button data-action="set-prep" data-value="${value}" aria-pressed="${p.mode === value}"
     class="py-2 rounded-lg border font-bold text-sm transition-colors ${p.mode === value ? 'bg-emerald-500 border-emerald-500 text-slate-900' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'}">${label}</button>`;
-  const firstStretch = p.second === 0 ? 'Monday' : `Monday–${DAYS[p.second]}`;
+  const firstStretch = p.second === 0 ? DAYS[0] : `${DAYS[0]}–${DAYS[p.second]}`;
+  const wk = state.week;
+  const step = (n, label) => `<button type="button" data-action="set-week-days" data-value="${wk.days + n}" ${wk.days + n < WEEK_DAYS_MIN || wk.days + n > WEEK_DAYS_MAX ? 'disabled' : ''} class="mb-step ${n < 0 ? 'rounded-l-lg' : 'rounded-r-lg'}" aria-label="${label}">${n < 0 ? '−' : '+'}</button>`;
   $('prep-style').innerHTML = `
-    <div class="grid grid-cols-2 gap-2">${btn('freezer', '🧊 One prep day + freezer')}${btn('two', '🔪 Two prep days')}</div>
-    ${p.mode === 'two' ? `
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label for="week-start" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">When in the week to start</label>
+        <select id="week-start" data-action="set-week-start" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-brand">
+          ${WEEKDAYS.map((name, i) => `<option value="${i}" ${i === wk.start ? 'selected' : ''}>${name}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <span id="week-days-label" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Days to prep for <span class="normal-case font-normal">(${WEEK_DAYS_MIN}–${WEEK_DAYS_MAX})</span></span>
+        <div class="flex" role="group" aria-labelledby="week-days-label">
+          ${step(-1, 'One day fewer')}
+          <span class="flex-1 bg-slate-900 border-y border-slate-700 px-3 py-2 text-center text-slate-100 font-bold" aria-live="polite">${plural(wk.days, 'day')}</span>
+          ${step(1, 'One day more')}
+        </div>
+      </div>
+    </div>
+    <p class="text-xs text-slate-400">Your plan runs <b class="text-slate-300">${DAYS[0]}${DAYS.length > 1 ? ` to ${DAYS[DAYS.length - 1]}` : ' only'}</b>, with the main prep on <b class="text-slate-300">${prepDayName()}</b> the day before.</p>
+    <div class="grid grid-cols-2 gap-2">${btn('freezer', '🧊 One prep day + freezer')}${DAYS.length > 1 ? btn('two', '🔪 Two prep days') : ''}</div>
+    ${p.mode === 'two' && DAYS.length > 1 ? `
       <label class="flex items-center gap-2 text-sm text-slate-300">Second prep day
         <select data-action="set-prep-day" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-100 focus:outline-none focus:border-brand">
-          ${DAYS.slice(0, 6).map((name, d) => `<option value="${d}" ${d === p.second ? 'selected' : ''}>${name} evening</option>`).join('')}
+          ${DAYS.slice(0, lastSecondPrep() + 1).map((name, d) => `<option value="${d}" ${d === p.second ? 'selected' : ''}>${name} evening</option>`).join('')}
         </select>
       </label>` : ''}
-    <p class="text-xs text-slate-400">${p.mode === 'two'
-      ? `Batch cook on Sunday for ${firstStretch}, then again on ${DAYS[p.second]} evening for the rest of the week, so boxes stay fresh in the fridge. Short-life fresh food for the second session goes on a mid-week top-up shop.`
-      : 'Batch cook everything on Sunday. Boxes eaten after a meal\'s fridge life go in the freezer and move to the fridge the night before; meals that don\'t freeze are kept to the start of the week.'}</p>`;
+    <p class="text-xs text-slate-400">${p.mode === 'two' && DAYS.length > 1
+      ? `Batch cook on ${prepDayName()} for ${firstStretch}, then again on ${DAYS[p.second]} evening for the rest of the week, so boxes stay fresh in the fridge. Short-life fresh food for the second session goes on a mid-week top-up shop.`
+      : `Batch cook everything on ${prepDayName()}. Boxes eaten after a meal\'s fridge life go in the freezer and move to the fridge the night before; meals that don't freeze are kept to the start of the week.`}</p>`;
 }
