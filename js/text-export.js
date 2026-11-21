@@ -76,7 +76,9 @@ function mealPlanText() {
   const where = b => b.place === 'freezer' ? 'freezer, thawed overnight' : b.place === 'over' ? `⚠ ${b.after} days after prep, doesn't freeze` : 'fridge';
   // Each prep session: what each batch is boxed into and where the boxes go
   const prepText = preps.map((_, i) => {
-    const lines = boxGroups(boxes).filter(g => g.session === i).map(g => `  ${g.meal.name}: ${boxPlacesText(g.boxes)}`);
+    // Each meal, then what goes into its batch (raw weights)
+    const lines = boxGroups(boxes).filter(g => g.session === i).map(g => `  ${g.meal.name}: ${boxPlacesText(g.boxes)}`
+      + batchIngredients(g).map(p => { const c = cookedNote(p.food, p.grams); return `\n    - ${fmtWeight(p.grams)} ${p.food.name}${c ? ` (${c})` : ''}`; }).join(''));
     return lines.length ? `${prepTitle(i, preps)}\n${lines.join('\n')}` : '';
   }).filter(Boolean);
   const portion = (m, size = 1, flex = {}) => `${m.name} (${plural(size, 'portion')}, ${fmt(slotTotals(m, size, flex).cals)} kcal)`;

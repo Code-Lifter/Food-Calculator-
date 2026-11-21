@@ -80,6 +80,7 @@ function renderShopping() {
         <div class="card-foot">
           <div class="flex flex-wrap items-center gap-1.5">
             ${pack}
+            ${dislikeButtons('foods', f.id, f.name)}
             <button data-action="toggle-short-life" data-id="${f.id}" aria-pressed="${isShortLife(f)}"
               title="Fresh food that won't keep all week. With two prep days, the part needed later goes on a mid-week top-up."
               class="chip transition-colors ${isShortLife(f) ? 'chip-sky' : 'chip-muted hover:text-slate-300'}">🥬 Short life</button>

@@ -247,9 +247,24 @@ const actions = {
     if (own) state.split[key] = true; else delete state.split[key];
     commit();
     const label = (MAIN_SLOTS.find(([s]) => s === el.dataset.slot) || [, el.dataset.slot])[1].toLowerCase();
+    // syncPartners keeps it split when the other person won't eat this meal
+    const m = mealById(state.plan[el.dataset.day][el.dataset.slot]);
+    if (!own && state.split[key]) { toast(`${personName(1 - state.person)} doesn't eat ${m ? m.name : 'that'} (👎), so this one stays separate`); return; }
     toast(own
       ? `${DAYS[el.dataset.day]} ${label}: pick your own meals — changes here no longer change ${personName(1 - state.person)}'s`
       : `${DAYS[el.dataset.day]} ${label}: same meal for both again`, { undoable: true });
+  },
+  // Two people: 👎 on a pantry food or meal card — that person won't eat it (dislikes.js). Turning it on takes
+  // it out of their week straight away; a shared meal becomes their own for that slot.
+  'toggle-dislike': el => {
+    const i = Number(el.dataset.person), kind = el.dataset.kind;
+    const item = kind === 'foods' ? foodById(el.dataset.id) : mealById(el.dataset.id);
+    if (!item || !state.people[i]) return;
+    stashPerson();
+    const on = toggleDislike(i, kind, item.id);
+    const n = on ? swapOutDislikes() : 0;
+    commit();
+    toast(on ? `👎 ${personName(i)} won't get ${item.name}${n ? ` — swapped out of ${plural(n, 'meal')} this week` : ''}` : `${personName(i)} can have ${item.name} again`, { undoable: true });
   },
   // 🎲 a different meal for one slot or snack (see rerollSlot)
   'reroll': el => rerollSlot(Number(el.dataset.day), el.dataset.slot, Number(el.dataset.idx) || 0),
@@ -370,13 +385,10 @@ const actions = {
   'example-load': loadExample,
   'example-add-foods': () => { addExampleFoods(); $('json-modal').close(); },
   'example-copy': () => copyText(exampleJson(), 'Example JSON copied'),
-  'example-download': () => {
-    const anchor = document.createElement('a');
-    anchor.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(exampleJson());
-    anchor.download = 'meal-planner-example.json';
-    anchor.click();
-  },
+  'example-download': () => saveJsonFile(exampleJson(), 'meal-planner-example.json'),
   'close-json': () => $('json-modal').close(),
+  'open-section-json': el => openSectionJson(el.dataset.kind),
+  'close-section-json': () => $('section-json-modal').close(),
   'copy-json': el => {
     const out = $('json-out');
     const done = () => { el.textContent = 'Copied ✓'; };
@@ -388,12 +400,7 @@ const actions = {
       done();
     }
   },
-  'export': () => {
-    const anchor = document.createElement('a');
-    anchor.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(state));
-    anchor.download = 'meal-plan.json';
-    anchor.click();
-  },
+  'export': () => saveJsonFile(JSON.stringify(state), `meal-plan-${new Date().toISOString().slice(0, 10)}.json`),
   // The week is disposable; meals, foods and targets are kept
   'new-week': () => {
     clearAllPlans();

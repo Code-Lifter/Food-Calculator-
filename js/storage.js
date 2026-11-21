@@ -25,8 +25,7 @@ function cookingSessions() {
   boxGroups(boxes).forEach(({ session, meal, boxes: group }) => {
     const portions = group.reduce((n, b) => n + b.size, 0);
     // 🍱 make-ahead meals cook every ingredient, box by box (each box keeps its own day's ↕ amounts)
-    if (meal.prepAhead) group.forEach(b => slotItems(meal, b.size, b.flex).forEach(p => add(prepSessions[session], meal, p.food, p.grams)));
-    else slotItems(meal, portions).filter(p => p.mode === 'ratio').forEach(p => add(prepSessions[session], meal, p.food, p.grams));
+    batchIngredients({ meal, boxes: group }).forEach(p => add(prepSessions[session], meal, p.food, p.grams));
     prepSessions[session].splits.push({ meal, boxes: group });
   });
 
@@ -123,6 +122,22 @@ function boxGroups(boxes) {
   });
   return Object.values(groups);
 }
+
+// What one session's batch of a meal is made from: [{ food, grams }] raw, biggest first. A batch cooks its 🔗 ratio
+// ingredients for all its boxes; a 🍱 make-ahead meal cooks everything, box by box (each with its own ↕ amounts)
+function batchIngredients({ meal, boxes }) {
+  const parts = meal.prepAhead ? boxes.flatMap(b => slotItems(meal, b.size, b.flex))
+    : slotItems(meal, boxes.reduce((n, b) => n + b.size, 0)).filter(p => p.mode === 'ratio');
+  const byFood = new Map();
+  parts.forEach(p => {
+    if (!p.food || !(p.grams > 0)) return;
+    const was = byFood.get(p.item.foodId);
+    byFood.set(p.item.foodId, { food: p.food, grams: (was ? was.grams : 0) + p.grams });
+  });
+  return [...byFood.values()].sort((a, b) => b.grams - a.grams);
+}
+// "≈ 1.2kg cooked" for foods that change weight when cooked (rice, pasta, meat), else ''
+const cookedNote = (food, grams) => { const k = cookedFactorOf(food); return k !== 1 ? `≈ ${fmtWeight(grams * k)} cooked` : ''; };
 
 // "2 boxes fridge (Mon, Tue) · 2 boxes freezer (Thu, Sat) — each ≈ 450g cooked"; weights go per day when they differ
 function boxPlacesText(boxes) {

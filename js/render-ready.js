@@ -71,8 +71,40 @@ function storageCard() {
         ${cell('Freezer boxes', count('freezer'), count('freezer') ? 'thaw in the fridge the night before' : '')}
         ${cell('Most in the fridge', `${peak} at once`, `${peakNight < 0 ? prepDayName() : DAYS[peakNight]} night`)}
       </div>
+      ${prepMealsHtml(preps, boxes)}
       ${over.length ? `<div class="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">⚠ Past their fridge life and the meal doesn't freeze: ${over.map(b => `<b>${esc(b.meal.name)}</b> (${DAYS[b.d]} ${b.label.toLowerCase()}, ${b.after} days after prep)`).join(', ')}. Move them earlier in the week on the Week tab${state.prep.mode === 'two' ? '' : ', or switch to two prep days'}.</div>` : ''}
     </div>`;
+}
+
+// Boxes & storage: each prep session's meals, what goes into each batch (raw weights) and where its boxes go
+function prepMealsHtml(preps, boxes) {
+  const groups = boxGroups(boxes);
+  return preps.map((_, i) => {
+    const mine = groups.filter(g => g.session === i);
+    if (!mine.length) return '';
+    return `
+      <div class="space-y-2 pt-1">
+        <h3 class="text-sm font-bold text-brand">🗓️ ${esc(prepTitle(i, preps))}</h3>
+        <div class="grid lg:grid-cols-2 gap-2">
+          ${mine.map(g => {
+            const portions = g.boxes.reduce((n, b) => n + b.size, 0);
+            const items = batchIngredients(g);
+            return `
+            <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50 space-y-1.5">
+              <div class="flex items-start justify-between gap-2">
+                <b class="text-slate-100">${esc(g.meal.name)}</b>
+                <span class="chip shrink-0">${g.meal.prepAhead ? '🍱 ' : ''}${plural(+portions.toFixed(2), 'portion')}</span>
+              </div>
+              ${items.length ? `<ul class="text-sm text-slate-200 list-disc pl-5">${items.map(p => {
+                const cooked = cookedNote(p.food, p.grams);
+                return `<li><b>${fmtWeight(p.grams)}</b> ${esc(p.food.name)}${cooked ? ` <span class="text-slate-400">(${cooked})</span>` : ''}</li>`;
+              }).join('')}</ul>` : ''}
+              <p class="text-xs text-slate-400">📦 ${esc(boxPlacesText(g.boxes))}</p>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 function cookingCard() {

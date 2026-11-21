@@ -189,6 +189,19 @@ function trySwap(day, d, slot, idx, id, target) {
   return { day: trial, miss: target ? dayMiss(trial, d, target) : 0 };
 }
 
+// For the person being viewed: day d with the meal they eat that best fits this slot (or snack `idx`), re-fitted,
+// as trySwap gives it; null when there's nothing they eat. Keeps to the repeat limit when it can.
+function bestFor(day, d, slot, idx = 0) {
+  const uses = mainUses();
+  const current = slot === 'snack' ? day.snacks[idx] : day[slot];
+  const ok = m => m.id !== current && hasType(m, slot) && eats(state.person, m)
+    && (slot === 'snack' ? !day.snacks.includes(m.id) : keepsUntil(m, d));
+  let pool = state.meals.filter(m => ok(m) && (slot === 'snack' || (uses[m.id] || 0) < repeatCap()));
+  if (!pool.length) pool = state.meals.filter(ok);
+  if (!pool.length) return null;
+  return pool.map(m => trySwap(day, d, slot, idx, m.id, state.daily.cals)).sort((a, b) => a.miss - b.miss)[0];
+}
+
 // After auto-fill picks a week, tries other meals in each slot (and other snacks) and keeps any swap that
 // brings the day clearly closer to its calories and macros, within the repeat limit. Two passes.
 // With two people a shared main meal is swapped for both at once and judged on both people's days together;
@@ -198,7 +211,7 @@ function improveWeek({ mains = true } = {}) {
   const who = everyone().filter(i => withPerson(i, () => state.daily.cals > 0));
   if (!who.length) return;
   const cap = repeatCap();
-  const snacks = state.meals.filter(m => hasType(m, 'snack'));
+  const allSnacks = state.meals.filter(m => hasType(m, 'snack'));
   for (let pass = 0; pass < 2; pass++) {
     DAYS.forEach((_, d) => {
       // Each person's day and how far it misses
@@ -214,7 +227,7 @@ function improveWeek({ mains = true } = {}) {
         (together ? [holders] : holders.map(i => [i])).forEach(group => {
           const current = best[group[0]].day[slot];
           const underCap = m => group.every(i => withPerson(i, () => (mainUses(state.plan.map((x, n) => (n === d ? best[i].day : x)))[m.id] || 0) < cap));
-          state.meals.filter(m => hasType(m, slot) && m.id !== current && keepsUntil(m, d) && underCap(m)).forEach(m => {
+          state.meals.filter(m => hasType(m, slot) && m.id !== current && keepsUntil(m, d) && underCap(m) && group.every(i => eats(i, m))).forEach(m => {
             const trial = group.map(i => withPerson(i, () => trySwap(best[i].day, d, slot, 0, m.id, state.daily.cals)));
             const now = group.reduce((s, i) => s + best[i].miss, 0);
             if (trial.reduce((s, t) => s + t.miss, 0) < now * 0.97) group.forEach((i, n) => { best[i] = trial[n]; });
@@ -223,6 +236,7 @@ function improveWeek({ mains = true } = {}) {
       });
       who.forEach(i => withPerson(i, () => {
         const target = state.daily.cals;
+        const snacks = allSnacks.filter(m => eats(i, m));
         let mine = best[i];
         mine.day.snacks.forEach((_, idx) => {
           snacks.filter(m => !mine.day.snacks.includes(m.id)).forEach(m => {
@@ -258,11 +272,13 @@ function rerollSlot(d, slot, idx = 0) {
   const seen = rerollSeen.get(key) || new Set();
   seen.add(current);
   const uses = mainUses();
-  const allowed = m => hasType(m, slot) && m.id !== current
+  // Two people: only meals the viewed person eats, and for a shared main, ones the other person eats too
+  const eaters = slot === 'snack' || isSplit(d, slot) ? [state.person] : everyone().filter(i => slotsOf(i).includes(slot));
+  const allowed = m => hasType(m, slot) && m.id !== current && eaters.every(i => eats(i, m))
     && (slot === 'snack' ? !day.snacks.includes(m.id) : (uses[m.id] || 0) < repeatCap() && keepsUntil(m, d));
   let pool = state.meals.filter(m => allowed(m) && !seen.has(m.id));
   if (!pool.length) { seen.clear(); seen.add(current); pool = state.meals.filter(allowed); }
-  if (!pool.length) pool = state.meals.filter(m => hasType(m, slot) && m.id !== current); // over the repeat limit beats nothing
+  if (!pool.length) pool = state.meals.filter(m => hasType(m, slot) && m.id !== current && eaters.every(i => eats(i, m))); // over the repeat limit beats nothing
   if (!pool.length) { toast(`No other ${slot === 'snack' ? 'snacks' : 'meals'} to swap in — create another on the Meals tab`); return; }
   const tries = pool.map(m => ({ m, ...trySwap(day, d, slot, idx, m.id, target) })).sort((a, b) => a.miss - b.miss);
   // Mostly the best fit, sometimes the 2nd or 3rd, so a re-roll isn't always the same answer
@@ -293,7 +309,14 @@ function autoFill({ shuffle = false } = {}) {
   // The person with the most meals a day has every slot anyone eats, so the week is solved as them
   const most = everyone().reduce((a, i) => (slotsOf(i).length > slotsOf(a).length ? i : a), state.person);
   const { plan, relaxed } = withPerson(most, () => {
-    const options = Object.fromEntries(mainSlots().map(([slot]) => [slot, state.meals.filter(m => hasType(m, slot)).map(m => ({
+    // Shared mains come from meals everyone eating that slot eats; if there are none, any meal, and
+    // swapOutDislikes() below gives whoever won't eat it their own
+    const forSlot = slot => {
+      const all = state.meals.filter(m => hasType(m, slot));
+      const liked = all.filter(m => everyone().filter(i => slotsOf(i).includes(slot)).every(i => eats(i, m)));
+      return liked.length ? liked : all;
+    };
+    const options = Object.fromEntries(mainSlots().map(([slot]) => [slot, forSlot(slot).map(m => ({
       id: m.id, tags: mealTags(m), fit: fitFor(m, slot),
       batch: isBatchMeal(m), fridgeDays: fridgeDaysOf(m), freezes: freezesOf(m)
     }))]));
@@ -302,7 +325,8 @@ function autoFill({ shuffle = false } = {}) {
   if (!plan) { toast('Could not fill the week — try fewer rules'); return; }
   const snacks = state.meals.filter(m => hasType(m, 'snack'));
   state.split = {};
-  everyone().forEach(i => withPerson(i, () => fillPlan(plan, state.daily.cals, snacks)));
+  everyone().forEach(i => withPerson(i, () => fillPlan(plan, state.daily.cals, snacks.filter(m => eats(i, m)))));
+  swapOutDislikes();
   improveWeek({ mains: shuffle ? 'rescue' : true });
   commit();
   const done = shuffle ? '🎲 Week shuffled' : 'Week filled';

@@ -38,6 +38,8 @@ function normalisePerson(p, fallbackMeals) {
   }
   return {
     name: String(p.name || '').slice(0, 20), stats, macroLean,
+    // Two people: foods and meals this person won't eat (dislikes.js); saves from before have none
+    dislikes: Object.fromEntries(['foods', 'meals'].map(k => [k, [...new Set((Array.isArray((p.dislikes || {})[k]) ? p.dislikes[k] : []).map(String))]])),
     mealsPerDay: Number.isInteger(mpd) && mpd >= MEALS_MIN && mpd <= MEALS_MAX ? mpd : base.mealsPerDay,
     // Saved daily targets load as they are; while live (stats.autoTargets) the next change re-works them
     daily,

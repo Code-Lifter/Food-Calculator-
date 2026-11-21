@@ -6,7 +6,7 @@ Open `index.html` in a browser to run the app. It works straight from disk (`fil
 index.html          page markup: tabs, panels, dialogs; loads everything below
 css/styles.css      the few non-Tailwind styles (number inputs, print, box labels)
 js/tailwind-config.js
-js/*.js             the app, split by job (26 files, see "Code map")
+js/*.js             the app, split by job (28 files, see "Code map")
 ```
 
 ## Stack
@@ -42,9 +42,10 @@ The internal id `shopping` was kept when the tab was renamed to "Single Food Pan
 | `render-pantry.js` | step 2: `renderShopping`, `foodMicrosHtml` |
 | `render-meals.js` | step 3: meal builder + meal cards (`renderMeals`) |
 | `people.js` | one or two people (`state.people`, viewed one = `state.person`): `stashPerson`/`loadPerson`/`withPerson(i, fn)`, `viewPerson`, `syncPartners` (mirrors main meals to the other person on every commit), `allPlans`, `allSupplements`, `renderPersonBar`, `renderPeople` |
+| `dislikes.js` | two people: 👎 foods/meals a person won't eat (`state.people[i].dislikes = { foods, meals }`, string ids). `eats(i, m)`/`wontEat(i, m)` (a meal is off if marked or if it has a marked food), `swapOutDislikes()`, `dislikeButtons`, `dislikeNote`, `dislikeTag`. All no-ops with one person |
 | `render-stock.js` | step 5, At home: `renderStock` — what's already in the house per food (`state.stock`, grams; counted foods typed as a count via `countUnit`). Typing updates only its row (`updateStockRow`) so the cursor stays; `shopLists()` subtracts it (main shop first, then the top-up). Cleared by Start a New Week; left out of share links |
 | `render-week.js` | step 4: rules card, `renderMacroLean` (Macro balance sliders → `state.macroLean`) + `renderPlan` |
-| `storage.js` | `cookingSessions`, `portionParts`, `isBatchMeal`, `storagePlan`, `eveningReminders`, `thawHtml`, `noThawNote` |
+| `storage.js` | `batchIngredients(group)` (what one prep session's batch of a meal is made from; used by the cooking plan, Boxes & storage's per-meal lists and the copied PREP & STORAGE notes), `cookedNote`, `cookingSessions`, `portionParts`, `isBatchMeal`, `storagePlan`, `eveningReminders`, `thawHtml`, `noThawNote` |
 | `render-ready.js` | step 6: labels, storage/cooking/today/cost cards, `renderSummary` |
 | `micro-display.js` | `microTone`, `microRows`, `microCard`, per-day nutrients |
 | `food-form.js` | micronutrient inputs, `openFoodModal` |
@@ -54,6 +55,7 @@ The internal id `shopping` was kept when the tab was renamed to "Single Food Pan
 | `autofill.js` | `fitMains` (solves portion sizes + ↕ amounts for a day: linear model, coordinate descent, then rounding; calories weigh 30×; each macro aims at its target × (1 + `state.macroLean[k]`), the Week tab's Macro balance sliders, ±20%; outside ±`MACRO_RANGE` of the plain target a steep `RANGE_WEIGHT` cost pulls it back; protein over its aim counts lightly unless leaned down; `fitScore` uses `leanedDaily()`), `dayMiss`, `autoFill` → `improveWeek` (tries swapping meals/snacks, and adding up to 2 snacks, where that fits a day better), `rerollSlot` (🎲) |
 | `text-export.js` | `copyText`, `shopLists`, `shoppingText`, `mealPlanText` |
 | `share.js` | share links in the URL hash |
+| `section-json.js` | { } Add JSON beside + Add a food / + Create a meal: `openSectionJson(kind)`, `importSection` merges only foods (`mergeFoods`, same id or name updates) or meals (`mergeMeals`; ingredients resolve by `foodId` or food name, a `foods` list alongside is merged first) |
 | `json-boxes.js` | JSON import/export boxes, modal openers |
 | `actions.js` | `actions` (buttons) and `changeActions` (inputs) by `data-action` name |
 | `events.js` | event wiring (clicks, inputs, keys, forms) |
@@ -82,7 +84,7 @@ The internal id `shopping` was kept when the tab was renamed to "Single Food Pan
 
 ## Built-in example (example-data.js)
 - `EXAMPLE_SESSION` is a full session (123 foods, 26 meals, a week, 4 supplements) for a made-up person (80 kg, 180 cm, 30). It was generated from the test library with the stats replaced, meal snapshots stripped and `grams` zeroed. **Never put real stats in it**: it ships in the public repo, unlike `test.json`.
-- It's opened from 📋 Examples on step 2 (`open-json` with `data-focus="examples"`) or from the JSON modal. `loadExample()` replaces everything (two-click confirm), then sizes the week to the live targets. `addExampleFoods()` merges by name: your foods and meals win, and example meals are re-pointed at your foods. Copy and download give the example as JSON.
+- It's opened from 📋 Examples on step 2 or 📋 Example in the header (`open-json` with `data-focus="examples"`). The header's 📂 Load and 💾 Save open the same JSON modal with `data-focus="load"`/`"save"`; `openJsonModal()` shows only that section. `loadExample()` replaces everything (two-click confirm), then sizes the week to the live targets. `addExampleFoods()` merges by name: your foods and meals win, and example meals are re-pointed at your foods. Copy and download give the example as JSON.
 
 ## Shared UI pieces (css/styles.css)
 - **Delete needs two clicks.** Put `data-confirm="Click again to delete"` on any `data-action` button: the click handler in `events.js` (`confirmClick`) arms it on the first click (red, shows that text, 4 s) and only runs the action on the second. Used by delete meal / supplement / unused food, Clear week and Clear at-home. A food that meals use shows its "used by" warning instead; Erase everything has its own older version.
@@ -102,6 +104,7 @@ The internal id `shopping` was kept when the tab was renamed to "Single Food Pan
 - **Main meals are shared, the rest is per person.** `commit()` calls `syncPartners()`: the other person's main slots are set to match the viewed person's, and any day that changed is re-fitted to their targets. Snacks, portion sizes, ↕ picks, macro balance and supplements are each person's own.
 - Household totals go through `allPlans()`: `plannedGrams`, `mealCounts`, `storagePlan` (each box has `who`), `cookingSessions`, `phaseGrams`, and `allSupplements()` for supplement shopping/cost. `boxesBySlot(boxes, who = state.person)` gives one person's boxes.
 - Auto-fill picks mains by the average `fitScore` across people, fills each person, then `improveWeek()` swaps a main only if both people's days together get better. ⚖️ Fit portions sizes everyone.
+- **👎 Won't eat** (dislikes.js): each person can mark pantry foods and meals (`toggle-dislike`). Auto-fill only picks shared mains everyone in that slot eats (falling back to any meal if none), filters snacks per person, and `improveWeek`/`rerollSlot` skip meals someone in the group won't eat. `syncPartners()` never copies a meal the other person won't eat: it marks the slot split and, if theirs is empty, fills it with `bestFor()` (autofill.js). Adding a dislike, and every auto-fill, runs `swapOutDislikes()`: that person's offending mains become 👤 Own with their best-fitting alternative; snacks are swapped or dropped. A meal picked by hand isn't changed, just flagged 👎 on the Week tab.
 - Ready tab: Today and Day by day show a block per person; "week at a glance" and micronutrients show the viewed person; shopping, At home, cost, boxes, labels and cooking are combined.
 
 ## Micronutrient colours

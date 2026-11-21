@@ -179,6 +179,12 @@ function renderPlan() {
           <div>
             <div class="flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"><span>${label}${day[slot] && size !== 1 ? ` <span class="normal-case text-brand">· ${plural(size, 'portion')}</span>` : ''}</span>${share}</div>
             ${own ? `<div class="mb-1 text-[11px] text-amber-200/80">${esc(personName(other))} has: <b>${theirs ? esc(theirs.name) : 'nothing picked'}</b></div>` : ''}
+            ${(() => {
+              // 👎 a meal someone eating it has marked as one they won't eat (picked by hand, or marked since)
+              const m = mealById(day[slot]);
+              const who = m ? [state.person, ...(theyEat && !own ? [other] : [])].filter(i => !eats(i, m)) : [];
+              return who.length ? `<div class="mb-1 text-[11px] font-semibold text-rose-300">👎 ${who.map(i => `${esc(personName(i))} doesn't eat ${esc(wontEat(i, m))}`).join(' · ')}</div>` : '';
+            })()}
             <div class="flex gap-2 items-center">
               ${picker(d, slot, slot, day[slot], search ? `pick a ${label.toLowerCase()}` : '— none —')}
               ${day[slot] ? `<input type="number" min="0.25" max="3" step="0.05" value="${size}" data-action="set-size" data-day="${d}" data-slot="${slot}"
@@ -208,7 +214,8 @@ function renderPlan() {
               const m = mealById(id);
               const b = boxAt.get(`${d}|snack${s}`);
               const stale = b && b.place === 'over';
-              return m ? `<span class="inline-flex items-center gap-1 text-xs bg-slate-700 border ${stale ? 'border-amber-500' : 'border-slate-600'} rounded-full pl-2 pr-1 py-0.5"${stale ? ` title="${b.after} days after prep — doesn't freeze"` : ''}>${stale ? '⚠ ' : ''}${esc(m.name)}
+              const no = m ? wontEat(state.person, m) : '';
+              return m ? `<span class="inline-flex items-center gap-1 text-xs bg-slate-700 border ${no ? 'border-rose-500' : stale ? 'border-amber-500' : 'border-slate-600'} rounded-full pl-2 pr-1 py-0.5"${no ? ` title="${esc(personName(state.person))} doesn't eat ${esc(no)}"` : stale ? ` title="${b.after} days after prep — doesn't freeze"` : ''}>${no ? '👎 ' : stale ? '⚠ ' : ''}${esc(m.name)}
                 <button data-action="reroll" data-day="${d}" data-slot="snack" data-idx="${s}" class="hover:scale-110 transition-transform px-0.5" title="Re-roll this snack" aria-label="Re-roll snack ${esc(m.name)}">🎲</button>
                 <button data-action="remove-snack" data-day="${d}" data-idx="${s}" class="text-slate-400 hover:text-rose-400 px-1" aria-label="Remove snack">✕</button></span>` : '';
             }).join('')}
@@ -247,7 +254,7 @@ function attachSlotSearches() {
       list: input.nextElementSibling,
       showAllOnEmpty: true,
       items: () => [...state.meals.filter(m => hasType(m, type)), ...state.meals.filter(m => !hasType(m, type))]
-        .map(m => ({ name: m.name, cals: portionTotals(m).cals, tag: hasType(m, type) ? '' : MEAL_TYPES[m.type], value: m.id })),
+        .map(m => ({ name: m.name, cals: portionTotals(m).cals, tag: esc((hasType(m, type) ? '' : MEAL_TYPES[m.type]) + dislikeTag(m)).replace(/^ · /, ''), value: m.id })),
       emptyText: 'No meals match.',
       onPick: ({ value }) => {
         const plan = state.plan[day];

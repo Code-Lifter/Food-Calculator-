@@ -12,30 +12,30 @@
 
   <div class="max-w-4xl xl:max-w-6xl mx-auto px-3 py-4 sm:p-6 space-y-6">
 
-    <!-- Header -->
-    <header class="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-md">
-      <div>
-        <h1 class="font-bold text-lg text-slate-100">Weekly Meal Planner</h1>
-        <p class="text-xs text-slate-400">Targets → pantry → meals → a full week of food and its shopping list.</p>
-      </div>
-      <div class="flex flex-wrap sm:justify-end gap-2">
-        <button data-action="undo" id="btn-undo" title="Undo (Ctrl/⌘+Z)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium px-3 py-1.5 rounded-lg border border-slate-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-700">
-          ↶ Undo
-        </button>
-        <button data-action="redo" id="btn-redo" title="Redo (Ctrl/⌘+Shift+Z)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium px-3 py-1.5 rounded-lg border border-slate-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-700">
-          ↷ Redo
-        </button>
-        <button data-action="new-week" title="Clears the week plan and ticks. Keeps your meals, foods and targets." class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium px-3 py-1.5 rounded-lg border border-slate-600 transition-colors">
-          🗓️ <span class="hidden min-[400px]:inline">Start a </span>New Week
-        </button>
-        <button data-action="open-json" title="Load or save your data as JSON" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium px-3 py-1.5 rounded-lg border border-slate-600 transition-colors">
-          { } JSON
-        </button>
-        <button data-action="erase-all" id="btn-erase" title="Erases targets, stats, foods, meals and the plan. Click twice to confirm." class="bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 text-sm font-medium px-3 py-1.5 rounded-lg border border-rose-800/60 transition-colors">Erase everything</button>
-        <a href="./index.html" class="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors border border-slate-600">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <!-- Header: title and Home, then the toolbar (history · your data · new week … erase). Styles: .hdr-* in css/styles.css -->
+    <header class="no-print bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-md space-y-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h1 class="font-bold text-lg text-slate-100">Weekly Meal Planner</h1>
+          <p class="text-xs text-slate-400">Targets → pantry → meals → a full week of food and its shopping list.</p>
+        </div>
+        <a href="./index.html" class="hdr-btn shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           Home
         </a>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-700/70">
+        <div class="hdr-group" role="group" aria-label="History">
+          <button data-action="undo" id="btn-undo" title="Undo (Ctrl/⌘+Z)" class="hdr-btn">↶ Undo</button>
+          <button data-action="redo" id="btn-redo" title="Redo (Ctrl/⌘+Shift+Z)" class="hdr-btn">↷ Redo</button>
+        </div>
+        <div class="hdr-group" role="group" aria-label="Your data">
+          <button data-action="open-json" data-focus="load" title="Load a saved session from a .json file or pasted JSON" class="hdr-btn">📂 Load</button>
+          <button data-action="open-json" data-focus="save" title="Save your data: copy it or download a .json file" class="hdr-btn">💾 Save</button>
+          <button data-action="open-json" data-focus="examples" title="Start from an example pantry, meals and week" class="hdr-btn">📋 Example</button>
+        </div>
+        <button data-action="new-week" title="Clears the week plan and ticks. Keeps your meals, foods and targets." class="hdr-btn">🗓️ New week</button>
+        <button data-action="erase-all" id="btn-erase" title="Erases targets, stats, foods, meals and the plan. Click twice to confirm." class="hdr-btn hdr-danger ml-auto">Erase everything</button>
       </div>
     </header>
 
@@ -195,6 +195,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <button data-action="open-json" data-focus="examples" title="Start from an example pantry, meals and week" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg border border-slate-600 transition-colors">📋 Examples</button>
+          <button data-action="open-section-json" data-kind="foods" title="Add foods to your pantry from JSON (pasted or a .json file)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg border border-slate-600 transition-colors">{ } Add JSON</button>
           <button data-action="open-food" class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-4 rounded-lg transition-colors">+ Add a food</button>
         </div>
       </div>
@@ -223,7 +224,10 @@
           <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">3. Your Meals &amp; Snacks</h2>
           <p class="text-xs text-slate-400 mt-1">Build a meal from foods in your pantry.</p>
         </div>
-        <button data-action="open-meal" class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-4 rounded-lg transition-colors">+ Create a meal</button>
+        <div class="flex flex-wrap gap-2">
+          <button data-action="open-section-json" data-kind="meals" title="Add meals from JSON (pasted or a .json file)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg border border-slate-600 transition-colors">{ } Add JSON</button>
+          <button data-action="open-meal" class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-4 rounded-lg transition-colors">+ Create a meal</button>
+        </div>
       </div>
 
       <div id="meal-list" class="space-y-4"></div>
@@ -543,7 +547,7 @@
     </div>
   </dialog>
 
-  <!-- JSON modal: load a session by drop/paste, or copy/download the current one -->
+  <!-- JSON modal, opened by the header's Load / Save / Example buttons: shows just that section (openJsonModal) -->
   <dialog id="json-modal" aria-labelledby="json-modal-title" class="no-print w-[calc(100vw-2rem)] max-w-2xl max-h-[calc(100vh-2rem)] bg-slate-800 text-slate-100 rounded-xl border border-slate-700 shadow-2xl p-0 backdrop:bg-black/60">
     <div class="p-5 space-y-5">
       <div class="flex items-center justify-between gap-3">
@@ -573,15 +577,15 @@
         </div>
       </section>
 
-      <section class="space-y-2 pt-4 border-t border-slate-700/60">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Load a session</h3>
+      <section id="json-load" class="space-y-2">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">From a saved .json file</h3>
         <p class="text-xs text-slate-400">Replaces your current targets, foods, meals and week. You can Undo straight after.</p>
         <div data-json-box="modal" data-prompt="Load a saved session"></div>
       </section>
 
-      <section class="space-y-2 pt-4 border-t border-slate-700/60">
+      <section id="json-save" class="space-y-2">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Save — your current data</h3>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Your current data</h3>
           <div class="flex gap-2">
             <button data-action="copy-json" id="btn-copy-json" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">Copy JSON</button>
             <button data-action="export" class="text-xs bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-1.5 px-3 rounded transition-colors">Download .json</button>
@@ -590,6 +594,22 @@
         <textarea id="json-out" readonly rows="10" spellcheck="false" aria-label="Current session as JSON"
           class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-emerald-400 text-xs font-mono focus:outline-none focus:border-brand resize-y"></textarea>
       </section>
+    </div>
+  </dialog>
+
+  <!-- { } Add JSON on the Pantry and Meals tabs: adds only foods or only meals (section-json.js) -->
+  <dialog id="section-json-modal" aria-labelledby="section-json-title" class="no-print w-[calc(100vw-2rem)] max-w-xl max-h-[calc(100vh-2rem)] bg-slate-800 text-slate-100 rounded-xl border border-slate-700 shadow-2xl p-0 backdrop:bg-black/60">
+    <div class="p-5 space-y-4">
+      <div class="flex items-center justify-between gap-3">
+        <h2 id="section-json-title" class="text-lg font-bold text-slate-100">Add from JSON</h2>
+        <button data-action="close-section-json" class="text-slate-400 hover:text-slate-100 px-2 py-1 rounded hover:bg-slate-700" aria-label="Close">✕</button>
+      </div>
+      <p id="section-json-help" class="text-xs text-slate-400 [&_code]:text-emerald-300"></p>
+      <div data-json-box="section" data-prompt="Add from a .json file"></div>
+      <details class="micro-fold">
+        <summary><span class="fold-arrow">▸</span> Example of the format</summary>
+        <pre id="section-json-sample" class="mt-1.5 bg-slate-950 border border-slate-700 rounded-lg p-2 text-emerald-400 text-xs font-mono whitespace-pre-wrap"></pre>
+      </details>
     </div>
   </dialog>
 
@@ -604,6 +624,7 @@
   <script src="js/state.js"></script>
   <script src="js/helpers.js"></script>
   <script src="js/people.js"></script>
+  <script src="js/dislikes.js"></script>
   <script src="js/micros.js"></script>
   <script src="js/rules.js"></script>
   <script src="js/shopping.js"></script>
@@ -625,6 +646,7 @@
   <script src="js/share.js"></script>
   <script src="js/example-data.js"></script>
   <script src="js/json-boxes.js"></script>
+  <script src="js/section-json.js"></script>
   <script src="js/actions.js"></script>
   <script src="js/events.js"></script>
   <script src="js/init.js"></script>

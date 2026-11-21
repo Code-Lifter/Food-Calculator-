@@ -156,7 +156,8 @@ function renderMeals() {
             s > 1 ? `<span class="chip">Batch of ${s}</span>` : '',
             m.prepAhead ? '<span class="chip chip-sky">🍱 Made ahead</span>' : '',
             isBatchMeal(m) ? `<span class="chip ${freezesOf(m) ? 'chip-sky' : ''}">${freezesOf(m) ? '🧊 Freezes' : "Doesn't freeze"} · ${plural(fridgeDaysOf(m), 'day')} in fridge</span>` : '',
-            cost != null ? `<span class="chip">≈ ${money(cost)} a portion</span>` : ''
+            cost != null ? `<span class="chip">≈ ${money(cost)} a portion</span>` : '',
+            twoPeople() ? dislikeNote(m) : ''
           ].filter(Boolean).join('');
           return `
             <div class="bg-slate-900 border border-slate-700 rounded-lg p-3 flex flex-col gap-2 hover:border-slate-500 transition-colors">
@@ -175,7 +176,10 @@ function renderMeals() {
               ${richestLine(m)}
               ${Object.keys(missingFoods([m])).length ? `<button data-action="re-add-meal" data-id="${m.id}" class="self-start text-[11px] text-amber-400 underline">Put missing foods back in the pantry</button>` : ''}
               <div class="card-foot">
-                <span class="text-[11px] text-slate-500">${s > 1 ? `Whole batch: ${fmt(mt.cals)} kcal` : ''}</span>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  ${dislikeButtons('meals', m.id, m.name)}
+                  ${s > 1 ? `<span class="text-[11px] text-slate-500">Whole batch: ${fmt(mt.cals)} kcal</span>` : ''}
+                </div>
                 <div class="flex gap-1.5 ml-auto">
                   <button data-action="edit-meal" data-id="${m.id}" class="btn-edit">✏️ Edit</button>
                   <button data-action="delete-meal" data-id="${m.id}" data-confirm="Click again to delete" class="btn-del">🗑 Delete</button>
@@ -189,7 +193,7 @@ function renderMeals() {
 }
 
 function mealOptions(type, selected, emptyLabel) {
-  const opt = m => `<option value="${m.id}" ${m.id === selected ? 'selected' : ''}>${esc(m.name)} (${fmt(portionTotals(m).cals)} kcal${servingsOf(m) > 1 ? ' / portion' : ''})</option>`;
+  const opt = m => `<option value="${m.id}" ${m.id === selected ? 'selected' : ''}>${esc(m.name)} (${fmt(portionTotals(m).cals)} kcal${servingsOf(m) > 1 ? ' / portion' : ''})${dislikeTag(m)}</option>`;
   const match = state.meals.filter(m => hasType(m, type));
   const other = state.meals.filter(m => !hasType(m, type));
   return `<option value="">${emptyLabel}</option>` + match.map(opt).join('') +

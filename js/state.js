@@ -60,7 +60,7 @@ const defaultState = () => withPeople({
 // One or two people share the household (people.js). The fields above — stats, daily, plan, macroLean,
 // supplements — are the person being viewed; `people` holds each person's own copy of them.
 function withPeople(s) {
-  s.people = [{ name: '', stats: s.stats, daily: s.daily, plan: s.plan, macroLean: s.macroLean, supplements: s.supplements, mealsPerDay: s.mealsPerDay }];
+  s.people = [{ name: '', stats: s.stats, daily: s.daily, plan: s.plan, macroLean: s.macroLean, supplements: s.supplements, mealsPerDay: s.mealsPerDay, dislikes: { foods: [], meals: [] } }];
   s.person = 0;
   return s;
 }

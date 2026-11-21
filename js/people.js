@@ -50,7 +50,7 @@ function viewPerson(i) {
 
 const newPerson = name => {
   const base = defaultState();
-  return { name, stats: base.stats, daily: base.daily, plan: emptyPlan(), macroLean: base.macroLean, supplements: [], mealsPerDay: state.mealsPerDay };
+  return { name, stats: base.stats, daily: base.daily, plan: emptyPlan(), macroLean: base.macroLean, supplements: [], mealsPerDay: state.mealsPerDay, dislikes: noDislikes() };
 };
 
 // By default everyone eats the same main meals. After a change to the viewed person's week, the other person's
@@ -62,12 +62,18 @@ function syncPartners() {
   const mine = state.plan, mySlots = slotsOf(state.person);
   everyone().filter(i => i !== state.person).forEach(i => {
     const shared = slotsOf(i).filter(slot => mySlots.includes(slot));
-    const dirty = [];
+    const dirty = [], refill = [];
     state.people[i].plan.forEach((day, d) => {
       let changed = false;
       shared.forEach(slot => {
         const id = mine[d][slot] || '';
         if (isSplit(d, slot) || (day[slot] || '') === id) return;
+        // A meal they won't eat (👎) isn't copied: the slot becomes their own, and an empty one gets a meal they eat
+        if (!eats(i, mealById(id))) {
+          state.split[`${d}|${slot}`] = true;
+          if (!day[slot] || !eats(i, mealById(day[slot]))) refill.push([d, slot]);
+          return;
+        }
         day[slot] = id;
         delete day.sizes[slot];
         delete day.flex[slot];
@@ -76,7 +82,13 @@ function syncPartners() {
       day.snacks = day.snacks.filter(id => mealById(id));
       if (changed) dirty.push(d);
     });
-    if (dirty.length) withPerson(i, () => { if (state.daily.cals) dirty.forEach(d => fitMains(state.plan[d], state.daily.cals, d)); });
+    if (dirty.length || refill.length) withPerson(i, () => {
+      refill.forEach(([d, slot]) => {
+        const best = bestFor(state.plan[d], d, slot);
+        if (best) { state.plan[d] = best.day; if (!dirty.includes(d)) dirty.push(d); }
+      });
+      if (state.daily.cals) dirty.forEach(d => fitMains(state.plan[d], state.daily.cals, d));
+    });
   });
 }
 
@@ -119,7 +131,7 @@ function renderPersonBar() {
       ${everyone().map(i => `<button data-action="view-person" data-person="${i}" aria-pressed="${i === state.person}"
         class="px-3 py-1 rounded-md transition-colors max-w-[10rem] truncate ${i === state.person ? 'bg-brand text-slate-950' : 'text-slate-400 hover:text-white'}">${esc(personName(i))}</button>`).join('')}
     </div>
-    <span class="text-[11px] text-slate-400 hidden sm:inline">Same meals for both · portions, snacks and targets are each person's own</span>`;
+    <span class="text-[11px] text-slate-400 hidden sm:inline">Same meals for both · portions, snacks and targets are each person's own · 👎 on a food or meal keeps it off someone's plate</span>`;
 }
 
 // Step 1: one person or two, and their names

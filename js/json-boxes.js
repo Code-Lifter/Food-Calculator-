@@ -12,6 +12,8 @@ const JSON_BOXES = {
       toast('Session loaded');
     }
   },
+  // { } Add JSON on the Pantry / Meals tabs: merges just that section (section-json.js)
+  section: { load: data => importSection(data) },
   // Loads a session, then the modal closes so the toast and page are visible
   modal: {
     load: data => {
@@ -21,19 +23,51 @@ const JSON_BOXES = {
   }
 };
 
+// Download .json: asks where to save it (a Save As dialog) in browsers that can (Chrome, Edge). Others
+// (Safari, Firefox) download it as usual; they ask where only if that's turned on in their settings.
+async function saveJsonFile(text, suggestedName) {
+  if (window.showSaveFilePicker) {
+    const asked = Date.now();
+    try {
+      const handle = await window.showSaveFilePicker({ suggestedName, types: [{ description: 'JSON file', accept: { 'application/json': ['.json'] } }] });
+      const file = await handle.createWritable();
+      await file.write(text);
+      await file.close();
+      toast(`Saved ${handle.name}`);
+      return;
+    } catch (err) {
+      // Closed the dialog: nothing saved, nothing to say. But some browsers (Dia, Arc) "cancel" at once without
+      // showing a dialog at all; nobody cancels in under a second, so that falls through to a plain download.
+      if (err.name === 'AbortError' && Date.now() - asked > 1000) return;
+      // Anything else (blocked on this page, no dialog): fall back to a plain download
+    }
+  }
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = suggestedName;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast(`Downloaded ${suggestedName} — to pick the folder each time, turn on "Ask where to save" in your browser's download settings`);
+}
+
 function openMealModal() {
   const modal = $('meal-modal');
   if (!modal.open) modal.showModal();
   $('mb-name').focus();
 }
 
+// The modal shows one job at a time: 'load', 'save' or 'examples' (the header's three buttons)
+const JSON_VIEWS = { load: ['📂 Load a session', 'json-load'], save: ['💾 Save your data', 'json-save'], examples: ['📋 Example', 'json-examples'] };
 function openJsonModal(focus) {
+  const view = JSON_VIEWS[focus] ? focus : 'load';
+  $('json-modal-title').textContent = JSON_VIEWS[view][0];
+  Object.entries(JSON_VIEWS).forEach(([k, [, id]]) => $(id).classList.toggle('hidden', k !== view));
   $('json-out').value = JSON.stringify(state, null, 2);
   $('btn-copy-json').textContent = 'Copy JSON';
   $('json-modal').querySelector('[data-json-error]').classList.add('hidden');
   $('example-count').textContent = `${EXAMPLE_SESSION.foods.length} foods, ${EXAMPLE_SESSION.meals.length} meals and a full week.`;
   $('json-modal').showModal();
-  if (focus === 'examples') $('json-examples').scrollIntoView({ block: 'start' });
 }
 
 function jsonBoxHtml(name, prompt) {
