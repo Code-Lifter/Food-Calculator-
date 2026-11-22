@@ -1,654 +1,1739 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" class="dark">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Weekly Meal Planner</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="js/tailwind-config.js"></script>
-  <link rel="stylesheet" href="css/styles.css">
-</head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans pb-16">
-
-  <div class="max-w-4xl xl:max-w-6xl mx-auto px-3 py-4 sm:p-6 space-y-6">
-
-    <!-- Header: title and Home, then the toolbar (history · your data · new week … erase). Styles: .hdr-* in css/styles.css -->
-    <header class="no-print bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-md space-y-3">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <h1 class="font-bold text-lg text-slate-100">Weekly Meal Planner</h1>
-          <p class="text-xs text-slate-400">Targets → pantry → meals → a full week of food and its shopping list.</p>
-        </div>
-        <a href="./index.html" class="hdr-btn shrink-0">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          Home
-        </a>
-      </div>
-      <div class="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-700/70">
-        <div class="hdr-group" role="group" aria-label="History">
-          <button data-action="undo" id="btn-undo" title="Undo (Ctrl/⌘+Z)" class="hdr-btn">↶ Undo</button>
-          <button data-action="redo" id="btn-redo" title="Redo (Ctrl/⌘+Shift+Z)" class="hdr-btn">↷ Redo</button>
-        </div>
-        <div class="hdr-group" role="group" aria-label="Your data">
-          <button data-action="open-json" data-focus="load" title="Load a saved session from a .json file or pasted JSON" class="hdr-btn">📂 Load</button>
-          <button data-action="open-json" data-focus="save" title="Save your data: copy it or download a .json file" class="hdr-btn">💾 Save</button>
-          <button data-action="open-json" data-focus="examples" title="Start from an example pantry, meals and week" class="hdr-btn">📋 Example</button>
-        </div>
-        <button data-action="new-week" title="Clears the week plan and ticks. Keeps your meals, foods and targets." class="hdr-btn">🗓️ New week</button>
-        <button data-action="erase-all" id="btn-erase" title="Erases targets, stats, foods, meals and the plan. Click twice to confirm." class="hdr-btn hdr-danger ml-auto">Erase everything</button>
-      </div>
-    </header>
-
-    <!-- Shown when the page is opened from a share link -->
-    <div id="share-banner" class="no-print"></div>
-
-    <!-- Always-visible status -->
-    <div id="status-bar" class="no-print sticky top-2 z-40 grid grid-cols-2 sm:grid-cols-5 gap-x-2 gap-y-1.5 bg-slate-800/95 backdrop-blur p-2 sm:p-3 rounded-xl border border-slate-700 shadow-lg text-center"></div>
-
-    <!-- Two people: whose targets, week and day-by-day are on screen -->
-    <div id="person-bar" class="no-print hidden flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 bg-slate-800 px-3 py-2 rounded-xl border border-slate-700"></div>
-
-    <!-- Step tabs -->
-    <nav id="tabs" role="tablist" aria-label="Steps" class="no-print grid grid-cols-6 gap-1 bg-slate-800 p-1 rounded-xl border border-slate-700">
-      <button data-tab="target" id="tab-target" role="tab" aria-controls="panel-target" class="tab-btn"><span aria-hidden="true">🎯</span><span><span class="hidden sm:inline">1. </span>Targets</span></button>
-      <button data-tab="shopping" id="tab-shopping" role="tab" title="Single Food Pantry" aria-controls="panel-shopping" class="tab-btn"><span aria-hidden="true">🥫</span><span><span class="hidden sm:inline">2. </span>Pantry</span></button>
-      <button data-tab="meals" id="tab-meals" role="tab" aria-controls="panel-meals" class="tab-btn"><span aria-hidden="true">🍽️</span><span><span class="hidden sm:inline">3. </span>Meals</span></button>
-      <button data-tab="plan" id="tab-plan" role="tab" aria-controls="panel-plan" class="tab-btn"><span aria-hidden="true">📅</span><span><span class="hidden sm:inline">4. </span>Week</span></button>
-      <button data-tab="stock" id="tab-stock" role="tab" aria-controls="panel-stock" class="tab-btn"><span aria-hidden="true">🏠</span><span><span class="hidden sm:inline">5. </span>At home</span></button>
-      <button data-tab="summary" id="tab-summary" role="tab" aria-controls="panel-summary" class="tab-btn"><span aria-hidden="true">✅</span><span><span class="hidden sm:inline">6. </span>Ready</span></button>
-    </nav>
-
-    <!-- 1. Targets -->
-    <section data-panel="target" id="panel-target" role="tabpanel" aria-labelledby="tab-target" class="space-y-6">
-
-      <!-- One person or two (people.js) -->
-      <div id="people-card" class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-3"></div>
-
-      <!-- Stats calculator (same maths as food.html) -->
-      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-4">
-        <div class="flex items-center justify-between">
-          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">1. Calculate From Your Stats</h2>
-          <div class="flex bg-slate-900 rounded-lg p-1 border border-slate-700 text-xs font-bold">
-            <button data-action="set-unit" data-value="kg" class="unit-btn px-3 py-1 rounded-md transition-colors">KG</button>
-            <button data-action="set-unit" data-value="lbs" class="unit-btn px-3 py-1 rounded-md transition-colors">LBS</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Weekly Meal Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/tailwind-config.js"></script>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body class="bg-slate-900 text-slate-100 min-h-screen font-sans pb-16">
+    <div class="max-w-4xl xl:max-w-6xl mx-auto px-3 py-4 sm:p-6 space-y-6">
+      <!-- Header: title and Home, then the toolbar (history · your data · new week … erase). Styles: .hdr-* in css/styles.css -->
+      <header
+        class="no-print bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-md space-y-3">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h1 class="font-bold text-lg text-slate-100">
+              Weekly Meal Planner
+            </h1>
+            <p class="text-xs text-slate-400">
+              Targets → pantry → meals → a full week of food and its shopping
+              list.
+            </p>
           </div>
+          <a href="./index.html" class="hdr-btn shrink-0">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true">
+              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+            Home
+          </a>
         </div>
-
-        <div class="grid grid-cols-2 gap-2">
-          <button data-action="set-gender" data-value="male" class="gender-btn py-2 rounded-lg border font-bold transition-colors">Male</button>
-          <button data-action="set-gender" data-value="female" class="gender-btn py-2 rounded-lg border font-bold transition-colors">Female</button>
+        <div
+          class="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-700/70">
+          <div class="hdr-group" role="group" aria-label="History">
+            <button
+              data-action="undo"
+              id="btn-undo"
+              title="Undo (Ctrl/⌘+Z)"
+              class="hdr-btn">
+              ↶ Undo
+            </button>
+            <button
+              data-action="redo"
+              id="btn-redo"
+              title="Redo (Ctrl/⌘+Shift+Z)"
+              class="hdr-btn">
+              ↷ Redo
+            </button>
+          </div>
+          <div class="hdr-group" role="group" aria-label="Your data">
+            <button
+              data-action="open-json"
+              data-focus="load"
+              title="Load a saved session from a .json file or pasted JSON"
+              class="hdr-btn">
+              📂 Load
+            </button>
+            <button
+              data-action="open-json"
+              data-focus="save"
+              title="Save your data: copy it or download a .json file"
+              class="hdr-btn">
+              💾 Save
+            </button>
+            <button
+              data-action="open-json"
+              data-focus="examples"
+              title="Start from an example pantry, meals and week"
+              class="hdr-btn">
+              📋 Example
+            </button>
+          </div>
+          <button
+            data-action="new-week"
+            title="Clears the week plan and ticks. Keeps your meals, foods and targets."
+            class="hdr-btn">
+            🗓️ New week
+          </button>
+          <button
+            data-action="erase-all"
+            id="btn-erase"
+            title="Erases targets, stats, foods, meals and the plan. Click twice to confirm."
+            class="hdr-btn hdr-danger ml-auto">
+            Erase everything
+          </button>
         </div>
+      </header>
 
-        <div class="grid grid-cols-3 gap-3">
-          <div>
-            <label for="st-weight" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Weight (<span class="unit-weight">kg</span>)</label>
-            <input type="number" id="st-weight" data-stat="weight" step="any" placeholder="80" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-brand">
-          </div>
-          <div>
-            <label for="st-height" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Height (<span class="unit-height">cm</span>)</label>
-            <input type="number" id="st-height" data-stat="height" step="any" placeholder="180" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-brand">
-          </div>
-          <div>
-            <label for="st-age" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Age</label>
-            <input type="number" id="st-age" data-stat="age" placeholder="30" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-brand">
-          </div>
-        </div>
+      <!-- Shown when the page is opened from a share link -->
+      <div id="share-banner" class="no-print"></div>
 
-        <div class="space-y-2">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <!-- Always-visible status -->
+      <div
+        id="status-bar"
+        class="no-print sticky top-2 z-40 grid grid-cols-2 sm:grid-cols-5 gap-x-2 gap-y-1.5 bg-slate-800/95 backdrop-blur p-2 sm:p-3 rounded-xl border border-slate-700 shadow-lg text-center"></div>
+
+      <!-- Two people: whose targets, week and day-by-day are on screen -->
+      <div
+        id="person-bar"
+        class="no-print hidden flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 bg-slate-800 px-3 py-2 rounded-xl border border-slate-700"></div>
+
+      <!-- Step tabs -->
+      <nav
+        id="tabs"
+        role="tablist"
+        aria-label="Steps"
+        class="no-print grid grid-cols-6 gap-1 bg-slate-800 p-1 rounded-xl border border-slate-700">
+        <button
+          data-tab="target"
+          id="tab-target"
+          role="tab"
+          aria-controls="panel-target"
+          class="tab-btn">
+          <span aria-hidden="true">🎯</span
+          ><span><span class="hidden sm:inline">1. </span>Targets</span>
+        </button>
+        <button
+          data-tab="shopping"
+          id="tab-shopping"
+          role="tab"
+          title="Single Food Pantry"
+          aria-controls="panel-shopping"
+          class="tab-btn">
+          <span aria-hidden="true">🥫</span
+          ><span><span class="hidden sm:inline">2. </span>Pantry</span>
+        </button>
+        <button
+          data-tab="meals"
+          id="tab-meals"
+          role="tab"
+          aria-controls="panel-meals"
+          class="tab-btn">
+          <span aria-hidden="true">🍽️</span
+          ><span><span class="hidden sm:inline">3. </span>Meals</span>
+        </button>
+        <button
+          data-tab="plan"
+          id="tab-plan"
+          role="tab"
+          aria-controls="panel-plan"
+          class="tab-btn">
+          <span aria-hidden="true">📅</span
+          ><span><span class="hidden sm:inline">4. </span>Week</span>
+        </button>
+        <button
+          data-tab="stock"
+          id="tab-stock"
+          role="tab"
+          aria-controls="panel-stock"
+          class="tab-btn">
+          <span aria-hidden="true">🏠</span
+          ><span><span class="hidden sm:inline">5. </span>At home</span>
+        </button>
+        <button
+          data-tab="summary"
+          id="tab-summary"
+          role="tab"
+          aria-controls="panel-summary"
+          class="tab-btn">
+          <span aria-hidden="true">✅</span
+          ><span><span class="hidden sm:inline">6. </span>Ready</span>
+        </button>
+      </nav>
+
+      <!-- 1. Targets -->
+      <section
+        data-panel="target"
+        id="panel-target"
+        role="tabpanel"
+        aria-labelledby="tab-target"
+        class="space-y-6">
+        <!-- One person or two (people.js) -->
+        <div
+          id="people-card"
+          class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-3"></div>
+
+        <!-- Stats calculator (same maths as food.html) -->
+        <div
+          class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-4">
+          <div class="flex items-center justify-between">
+            <h2
+              class="text-sm font-bold uppercase tracking-wider text-slate-400">
+              1. Calculate From Your Stats
+            </h2>
+            <div
+              class="flex bg-slate-900 rounded-lg p-1 border border-slate-700 text-xs font-bold">
+              <button
+                data-action="set-unit"
+                data-value="kg"
+                class="unit-btn px-3 py-1 rounded-md transition-colors">
+                KG
+              </button>
+              <button
+                data-action="set-unit"
+                data-value="lbs"
+                class="unit-btn px-3 py-1 rounded-md transition-colors">
+                LBS
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              data-action="set-gender"
+              data-value="male"
+              class="gender-btn py-2 rounded-lg border font-bold transition-colors">
+              Male
+            </button>
+            <button
+              data-action="set-gender"
+              data-value="female"
+              class="gender-btn py-2 rounded-lg border font-bold transition-colors">
+              Female
+            </button>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3">
             <div>
-              <label for="st-job" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Job / daily activity</label>
-              <select id="st-job" data-stat="job" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-brand">
-                <option value="desk">Desk job (mostly sitting)</option>
-                <option value="onFeet">On your feet (retail, teaching, nursing)</option>
-                <option value="manual">Manual labour (trades, warehouse)</option>
-                <option value="heavy">Heavy manual labour (construction, farming)</option>
-              </select>
+              <label
+                for="st-weight"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Weight (<span class="unit-weight">kg</span>)</label
+              >
+              <input
+                type="number"
+                id="st-weight"
+                data-stat="weight"
+                step="any"
+                placeholder="80"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-brand" />
             </div>
             <div>
-              <label for="st-training" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Training hours per week</label>
-              <input type="number" id="st-training" data-stat="trainingHrs" min="0" max="20" step="0.5" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-brand">
+              <label
+                for="st-height"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Height (<span class="unit-height">cm</span>)</label
+              >
+              <input
+                type="number"
+                id="st-height"
+                data-stat="height"
+                step="any"
+                placeholder="180"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-brand" />
+            </div>
+            <div>
+              <label
+                for="st-age"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Age</label
+              >
+              <input
+                type="number"
+                id="st-age"
+                data-stat="age"
+                placeholder="30"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-brand" />
             </div>
           </div>
-          <p class="text-xs text-slate-400">This is a starting estimate. Adjust it after 2–3 weeks based on your weight trend.</p>
-        </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label for="st-bf" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Body fat % <span class="normal-case font-normal">(only if measured – DEXA/skinfolds)</span></label>
-            <input type="number" id="st-bf" data-stat="bfPct" min="3" max="60" step="any" placeholder="optional" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-brand placeholder-slate-500">
-          </div>
-          <div>
-            <label for="st-fat" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Fat % <span class="normal-case font-normal">(of calories, 20–35)</span></label>
-            <input type="number" id="st-fat" data-stat="fatPct" min="20" max="35" step="1" placeholder="25" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-brand">
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Current phase</label>
-          <div class="grid grid-cols-3 gap-2">
-            <button data-action="set-goal" data-value="cut" class="goal-btn py-2 rounded-lg border font-bold text-sm transition-colors">✂️ Cut</button>
-            <button data-action="set-goal" data-value="maintain" class="goal-btn py-2 rounded-lg border font-bold text-sm transition-colors">⚓ Maintain</button>
-            <button data-action="set-goal" data-value="bulk" class="goal-btn py-2 rounded-lg border font-bold text-sm transition-colors">💪 Bulk</button>
-          </div>
-          <div id="goal-speed" class="mt-2"></div>
-          <p id="goal-desc" class="mt-2 text-xs text-brand font-mono text-center"></p>
-        </div>
-
-        <!-- Live result: the daily targets these stats give (edit.js, renderLiveTargets) -->
-        <div id="live-targets" role="status" aria-live="polite"></div>
-        <p id="bmr-formula" class="text-[11px] text-slate-400 text-center"></p>
-        <div id="stats-note" role="status" class="hidden text-xs text-amber-300 space-y-0.5"></div>
-      </div>
-      <p class="text-xs text-slate-400 px-1">General information only, not individualised medical nutrition advice. For a personalised plan, see an Accredited Practising Dietitian (AU) or a Registered Dietitian/Nutritionist (UK). Pregnant, breastfeeding, or managing a medical condition? Check with your GP first.</p>
-
-      <!-- Daily targets (×7 like food-prep.html's multiplier) -->
-      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Daily Targets <span class="normal-case font-normal text-slate-400">— from your stats, or type your own</span></h2>
-          <span id="targets-mode"></span>
-        </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div>
-            <label for="daily-cals" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Daily Cals</label>
-            <input type="number" id="daily-cals" data-target="cals" min="0" placeholder="2000" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-100 font-bold focus:outline-none focus:border-brand">
-          </div>
-          <div>
-            <label for="daily-protein" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Daily Protein (g)</label>
-            <input type="number" id="daily-protein" data-target="protein" min="0" placeholder="150" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-100 font-bold focus:outline-none focus:border-brand">
-          </div>
-          <div>
-            <label for="daily-carbs" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Daily Carbs (g)</label>
-            <input type="number" id="daily-carbs" data-target="carbs" min="0" placeholder="200" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-100 font-bold focus:outline-none focus:border-brand">
-          </div>
-          <div>
-            <label for="daily-fat" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Daily Fat (g)</label>
-            <input type="number" id="daily-fat" data-target="fat" min="0" placeholder="65" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-100 font-bold focus:outline-none focus:border-brand">
-          </div>
-        </div>
-        <div id="weekly-output"></div>
-        <div id="split-output"></div>
-      </div>
-      <!-- Prep week: start day, number of days (1–10), when batch meals are cooked and how their boxes are stored -->
-      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-3">
-        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Prep Week <span class="normal-case font-normal text-slate-400">— when it starts, how many days, and when batch meals get cooked</span></h2>
-        <div id="prep-style" class="space-y-3"></div>
-      </div>
-      <!-- Supplements (optional): kcal and macros count toward each day, vitamins and minerals toward the Ready tab totals -->
-      <details id="supp-card" class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md">
-        <summary class="cursor-pointer select-none text-sm font-bold uppercase tracking-wider text-slate-400">💊 Supplements <span id="supp-count" class="normal-case font-normal"></span> <span class="normal-case font-normal text-slate-500">— optional</span></summary>
-        <div class="mt-3 space-y-3">
-          <div class="flex justify-end"><button data-action="open-supp" class="text-xs bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-1.5 px-3 rounded transition-colors">+ Add supplement</button></div>
-          <div id="supp-list" class="space-y-2"></div>
-          <p class="text-xs text-slate-400">General information only. Supplements can interact with medicines and conditions — check with a GP or pharmacist before starting one. Not a recommendation of any product.</p>
-        </div>
-      </details>
-      <button data-goto="shopping" class="w-full bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">Next: Build your shopping list →</button>
-    </section>
-
-    <!-- 2. Single Food Pantry -->
-    <section data-panel="shopping" id="panel-shopping" role="tabpanel" aria-labelledby="tab-shopping" class="space-y-6 hidden">
-      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">2. Single Food Pantry</h2>
-          <p class="text-xs text-slate-400 mt-1">Your library of single ingredients, per 100g from the label. Use them in your meals in step 3 — how much to buy is worked out from your week plan, so there's no amount to enter here.</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button data-action="open-json" data-focus="examples" title="Start from an example pantry, meals and week" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg border border-slate-600 transition-colors">📋 Examples</button>
-          <button data-action="open-section-json" data-kind="foods" title="Add foods to your pantry from JSON (pasted or a .json file)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg border border-slate-600 transition-colors">{ } Add JSON</button>
-          <button data-action="open-food" class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-4 rounded-lg transition-colors">+ Add a food</button>
-        </div>
-      </div>
-
-      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-4">
-        <div class="flex flex-wrap items-center gap-2">
-          <div class="relative flex-1 min-w-[12rem]">
-            <input id="pantry-search" type="search" autocomplete="off" spellcheck="false" placeholder="🔍 Search your pantry…" aria-label="Search your pantry"
-              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-brand placeholder-slate-500">
-          </div>
-          <select id="currency" data-action="set-currency" aria-label="Currency for prices" title="Currency for prices" class="text-sm bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-slate-200 focus:outline-none focus:border-brand">
-            <option value="AUD">AUD $</option>
-            <option value="GBP">GBP £</option>
-          </select>
-        </div>
-        <p id="pantry-count" class="text-xs text-slate-400"></p>
-        <div id="basket-list" class="space-y-2"></div>
-      </div>
-      <div class="flex gap-2"><button data-goto="target" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">← Back</button><button data-goto="meals" class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">Next: Make your meals →</button></div>
-    </section>
-
-    <!-- 3. Meals -->
-    <section data-panel="meals" id="panel-meals" role="tabpanel" aria-labelledby="tab-meals" class="space-y-6 hidden">
-      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">3. Your Meals &amp; Snacks</h2>
-          <p class="text-xs text-slate-400 mt-1">Build a meal from foods in your pantry.</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button data-action="open-section-json" data-kind="meals" title="Add meals from JSON (pasted or a .json file)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg border border-slate-600 transition-colors">{ } Add JSON</button>
-          <button data-action="open-meal" class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-4 rounded-lg transition-colors">+ Create a meal</button>
-        </div>
-      </div>
-
-      <div id="meal-list" class="space-y-4"></div>
-      <div class="flex gap-2"><button data-goto="shopping" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">← Back</button><button data-goto="plan" class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">Next: Plan your week →</button></div>
-    </section>
-
-    <!-- 4. Week plan -->
-    <section data-panel="plan" id="panel-plan" role="tabpanel" aria-labelledby="tab-plan" class="space-y-6 hidden">
-      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">4. Left to Plan This Week</h2>
-          <div class="flex gap-2">
-            <button data-action="autofill" class="text-xs bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-1.5 px-3 rounded transition-colors">Auto-fill week</button>
-            <button data-action="shuffle-week" title="Not happy with the layout? Shuffles the whole week into a different set of meals, portions still fitted" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-1.5 px-3 rounded border border-slate-600 transition-colors">🎲 Shuffle week</button>
-            <button data-action="fit-portions" title="Keeps your meals, resizes every portion so each day hits your calorie target" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-1.5 px-3 rounded border border-slate-600 transition-colors">⚖️ Fit portions</button>
-            <button data-action="clear-plan" data-confirm="Click again to clear the week" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">Clear</button>
-          </div>
-        </div>
-        <div id="plan-people-note"></div>
-        <div id="meals-per-day" class="flex flex-wrap items-center gap-2 text-xs text-slate-300"></div>
-        <div id="plan-left" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
-        <div id="plan-rules" class="pt-3 border-t border-slate-700/60"></div>
-        <div id="macro-lean" class="pt-3 border-t border-slate-700/60"></div>
-        <details class="micro-fold pt-3 border-t border-slate-700/60">
-          <summary><span class="fold-arrow">▸</span> ℹ️ How Auto-fill, Shuffle and Fit portions work</summary>
-          <p class="text-xs text-slate-400 pt-2">Auto-fill spreads your own meals across the week (keeping to the repeat limit) and adds a snack or two, then tries swapping in other meals wherever that brings a day closer to your targets. For each day it works out the portion sizes (🔗 ratio ingredients scale together) and ↕ range amounts that land on your calories first, then protein, carbs and fat. 📌 fixed ones never change. Picked meals yourself? Hit ⚖️ Fit portions. Don't fancy the whole layout? 🎲 Shuffle week deals the meals out differently each time. Don't fancy one meal? Its own 🎲 swaps it for a different one that still fits the day. The small box is the portion size; the Ready tab turns it all into grams.</p>
-        </details>
-        <div id="plan-warnings"></div>
-      </div>
-      <div id="day-picker" class="md:hidden"></div>
-      <div id="plan-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
-      <div class="flex gap-2"><button data-goto="meals" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">← Back</button><button data-goto="stock" class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">Next: What's already at home →</button></div>
-    </section>
-
-    <!-- 5. At home: what's already in the house comes off the shopping list -->
-    <section data-panel="stock" id="panel-stock" role="tabpanel" aria-labelledby="tab-stock" class="space-y-6 hidden">
-      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">5. Already at Home</h2>
-            <p class="text-xs text-slate-400 mt-1">Check your cupboards, fridge and freezer. Type how much of each you've got (a count for things like eggs and apples, raw grams for the rest) and it comes off the shopping list. <b>All</b> means you've got enough.</p>
-          </div>
-          <button data-action="clear-stock" data-confirm="Click again to clear" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">Clear</button>
-        </div>
-        <div id="stock-summary"></div>
-      </div>
-      <div id="stock-list" class="space-y-4"></div>
-      <div class="flex gap-2"><button data-goto="plan" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">← Back</button><button data-goto="summary" class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">Finish: See my lists →</button></div>
-    </section>
-
-    <!-- 6. Summary -->
-    <section data-panel="summary" id="panel-summary" role="tabpanel" aria-labelledby="tab-summary" class="space-y-6 hidden">
-      <div class="no-print grid grid-cols-2 sm:flex gap-2">
-        <button data-action="copy-shopping" class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-100 font-semibold py-2 px-3 rounded-lg transition-colors">Copy shopping list</button>
-        <button data-action="copy-meals" class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-100 font-semibold py-2 px-3 rounded-lg transition-colors">Copy meal plan</button>
-        <button data-action="share" class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-100 font-semibold py-2 px-3 rounded-lg transition-colors">🔗 Share link</button>
-        <button data-action="print" class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-3 rounded-lg transition-colors">Print</button>
-      </div>
-      <div id="share-out" class="no-print"></div>
-      <div id="summary-content" class="space-y-6"></div>
-      <button data-goto="stock" class="no-print bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">← Back</button>
-    </section>
-
-
-  </div>
-
-  <!-- Food modal: add a food from its label -->
-  <dialog id="food-modal" aria-labelledby="food-modal-title" class="no-print w-[calc(100vw-2rem)] max-w-3xl max-h-[calc(100vh-2rem)] bg-slate-800 text-slate-100 rounded-xl border border-slate-700 shadow-2xl p-0 backdrop:bg-black/60 open:flex flex-col overflow-hidden">
-    <!-- Header stays put while the body scrolls -->
-    <div class="shrink-0 flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-700">
-      <h2 id="food-modal-title" class="text-lg font-bold text-slate-100">Add a Food</h2>
-      <button type="button" data-action="close-food" class="text-slate-400 hover:text-slate-100 px-2 py-1 rounded hover:bg-slate-700" aria-label="Close">✕</button>
-    </div>
-    <form id="food-form" class="flex-1 min-h-0 flex flex-col">
-      <div class="flex-1 overflow-y-auto px-5 py-5 space-y-7">
-        <!-- 1. What it is -->
-        <section class="grid grid-cols-1 sm:grid-cols-[1fr_14rem] gap-3" aria-label="Food details">
-          <div>
-            <label for="ff-name" class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Name</label>
-            <input id="ff-name" required placeholder="e.g. Rolled oats" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600">
-          </div>
-          <div>
-            <label for="ff-category" class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Aisle</label>
-            <select id="ff-category" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand"></select>
-          </div>
-        </section>
-
-        <!-- 2. Nutrition from the label -->
-        <section class="space-y-3" aria-labelledby="ff-nutrition-title">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h3 id="ff-nutrition-title" class="text-sm font-bold uppercase tracking-wider text-slate-300">Nutrition <span class="normal-case font-normal text-slate-400">per 100g</span></h3>
-            <div class="flex items-center gap-2 text-xs">
-              <span class="text-slate-400">Energy in</span>
-              <div id="ff-energy-unit" role="group" aria-label="Energy unit" class="flex bg-slate-900 rounded-lg p-0.5 border border-slate-700 font-semibold"></div>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <div class="col-span-2 sm:col-span-1">
-              <label for="ff-cals" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Energy</label>
-              <div class="relative">
-                <input id="ff-cals" type="number" step="any" min="0" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600 pr-12">
-                <span id="ff-cals-unit" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">kcal</span>
+          <div class="space-y-2">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label
+                  for="st-job"
+                  class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                  >Job / daily activity</label
+                >
+                <select
+                  id="st-job"
+                  data-stat="job"
+                  class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-brand">
+                  <option value="desk">Desk job (mostly sitting)</option>
+                  <option value="onFeet">
+                    On your feet (retail, teaching, nursing)
+                  </option>
+                  <option value="manual">
+                    Manual labour (trades, warehouse)
+                  </option>
+                  <option value="heavy">
+                    Heavy manual labour (construction, farming)
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label
+                  for="st-training"
+                  class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                  >Training hours per week</label
+                >
+                <input
+                  type="number"
+                  id="st-training"
+                  data-stat="trainingHrs"
+                  min="0"
+                  max="20"
+                  step="0.5"
+                  placeholder="0"
+                  class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-brand" />
               </div>
             </div>
-          <div>
-            <label for="ff-protein" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Protein</label>
-            <div class="relative">
-              <input id="ff-protein" type="number" step="any" min="0" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600 pr-10">
-              <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">g</span>
+            <p class="text-xs text-slate-400">
+              This is a starting estimate. Adjust it after 2–3 weeks based on
+              your weight trend.
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label
+                for="st-bf"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Body fat %
+                <span class="normal-case font-normal"
+                  >(only if measured – DEXA/skinfolds)</span
+                ></label
+              >
+              <input
+                type="number"
+                id="st-bf"
+                data-stat="bfPct"
+                min="3"
+                max="60"
+                step="any"
+                placeholder="optional"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-brand placeholder-slate-500" />
+            </div>
+            <div>
+              <label
+                for="st-fat"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Fat %
+                <span class="normal-case font-normal"
+                  >(of calories, 20–35)</span
+                ></label
+              >
+              <input
+                type="number"
+                id="st-fat"
+                data-stat="fatPct"
+                min="20"
+                max="35"
+                step="1"
+                placeholder="25"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-brand" />
             </div>
           </div>
+
           <div>
-            <label for="ff-carbs" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Carbs</label>
-            <div class="relative">
-              <input id="ff-carbs" type="number" step="any" min="0" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600 pr-10">
-              <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">g</span>
+            <label
+              class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+              >Current phase</label
+            >
+            <div class="grid grid-cols-3 gap-2">
+              <button
+                data-action="set-goal"
+                data-value="cut"
+                class="goal-btn py-2 rounded-lg border font-bold text-sm transition-colors">
+                ✂️ Cut
+              </button>
+              <button
+                data-action="set-goal"
+                data-value="maintain"
+                class="goal-btn py-2 rounded-lg border font-bold text-sm transition-colors">
+                ⚓ Maintain
+              </button>
+              <button
+                data-action="set-goal"
+                data-value="bulk"
+                class="goal-btn py-2 rounded-lg border font-bold text-sm transition-colors">
+                💪 Bulk
+              </button>
+            </div>
+            <div id="goal-speed" class="mt-2"></div>
+            <p
+              id="goal-desc"
+              class="mt-2 text-xs text-brand font-mono text-center"></p>
+          </div>
+
+          <!-- Live result: the daily targets these stats give (edit.js, renderLiveTargets) -->
+          <div id="live-targets" role="status" aria-live="polite"></div>
+          <p
+            id="bmr-formula"
+            class="text-[11px] text-slate-400 text-center"></p>
+          <div
+            id="stats-note"
+            role="status"
+            class="hidden text-xs text-amber-300 space-y-0.5"></div>
+        </div>
+        <p class="text-xs text-slate-400 px-1">
+          General information only, not individualised medical nutrition advice.
+          For a personalised plan, see an Accredited Practising Dietitian (AU)
+          or a Registered Dietitian/Nutritionist (UK). Pregnant, breastfeeding,
+          or managing a medical condition? Check with your GP first.
+        </p>
+
+        <!-- Daily targets (×7 like food-prep.html's multiplier) -->
+        <div
+          class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2
+              class="text-sm font-bold uppercase tracking-wider text-slate-400">
+              Daily Targets
+              <span class="normal-case font-normal text-slate-400"
+                >— from your stats, or type your own</span
+              >
+            </h2>
+            <span id="targets-mode"></span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label
+                for="daily-cals"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Daily Cals</label
+              >
+              <input
+                type="number"
+                id="daily-cals"
+                data-target="cals"
+                min="0"
+                placeholder="2000"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-100 font-bold focus:outline-none focus:border-brand" />
+            </div>
+            <div>
+              <label
+                for="daily-protein"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Daily Protein (g)</label
+              >
+              <input
+                type="number"
+                id="daily-protein"
+                data-target="protein"
+                min="0"
+                placeholder="150"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-100 font-bold focus:outline-none focus:border-brand" />
+            </div>
+            <div>
+              <label
+                for="daily-carbs"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Daily Carbs (g)</label
+              >
+              <input
+                type="number"
+                id="daily-carbs"
+                data-target="carbs"
+                min="0"
+                placeholder="200"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-100 font-bold focus:outline-none focus:border-brand" />
+            </div>
+            <div>
+              <label
+                for="daily-fat"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Daily Fat (g)</label
+              >
+              <input
+                type="number"
+                id="daily-fat"
+                data-target="fat"
+                min="0"
+                placeholder="65"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-100 font-bold focus:outline-none focus:border-brand" />
             </div>
           </div>
+          <div id="weekly-output"></div>
+          <div id="split-output"></div>
+        </div>
+        <!-- Prep week: start day, number of days (1–10), when batch meals are cooked and how their boxes are stored -->
+        <div
+          class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-3">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">
+            Prep Week
+            <span class="normal-case font-normal text-slate-400"
+              >— when it starts, how many days, and when batch meals get
+              cooked</span
+            >
+          </h2>
+          <div id="prep-style" class="space-y-3"></div>
+        </div>
+        <!-- Supplements (optional): kcal and macros count toward each day, vitamins and minerals toward the Ready tab totals -->
+        <details
+          id="supp-card"
+          class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md">
+          <summary
+            class="cursor-pointer select-none text-sm font-bold uppercase tracking-wider text-slate-400">
+            💊 Supplements
+            <span id="supp-count" class="normal-case font-normal"></span>
+            <span class="normal-case font-normal text-slate-500"
+              >— optional</span
+            >
+          </summary>
+          <div class="mt-3 space-y-3">
+            <div class="flex justify-end">
+              <button
+                data-action="open-supp"
+                class="text-xs bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-1.5 px-3 rounded transition-colors">
+                + Add supplement
+              </button>
+            </div>
+            <div id="supp-list" class="space-y-2"></div>
+            <p class="text-xs text-slate-400">
+              General information only. Supplements can interact with medicines
+              and conditions — check with a GP or pharmacist before starting
+              one. Not a recommendation of any product.
+            </p>
+          </div>
+        </details>
+        <button
+          data-goto="shopping"
+          class="w-full bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">
+          Next: Build your shopping list →
+        </button>
+      </section>
+
+      <!-- 2. Single Food Pantry -->
+      <section
+        data-panel="shopping"
+        id="panel-shopping"
+        role="tabpanel"
+        aria-labelledby="tab-shopping"
+        class="space-y-6 hidden">
+        <div
+          class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md flex flex-wrap items-center justify-between gap-3">
           <div>
-            <label for="ff-fat" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Fat</label>
-            <div class="relative">
-              <input id="ff-fat" type="number" step="any" min="0" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600 pr-10">
-              <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">g</span>
+            <h2
+              class="text-sm font-bold uppercase tracking-wider text-slate-400">
+              2. Single Food Pantry
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">
+              Your library of single ingredients, per 100g from the label. Use
+              them in your meals in step 3 — how much to buy is worked out from
+              your week plan, so there's no amount to enter here.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              data-action="open-json"
+              data-focus="examples"
+              title="Start from an example pantry, meals and week"
+              class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg border border-slate-600 transition-colors">
+              📋 Examples
+            </button>
+            <button
+              data-action="open-section-json"
+              data-kind="foods"
+              title="Add foods to your pantry from JSON (pasted or a .json file)"
+              class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg border border-slate-600 transition-colors">
+              { } Add JSON
+            </button>
+            <button
+              data-action="open-food"
+              class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-4 rounded-lg transition-colors">
+              + Add a food
+            </button>
+          </div>
+        </div>
+
+        <div
+          class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-4">
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="relative flex-1 min-w-[12rem]">
+              <input
+                id="pantry-search"
+                type="search"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="🔍 Search your pantry…"
+                aria-label="Search your pantry"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-brand placeholder-slate-500" />
+            </div>
+            <select
+              id="currency"
+              data-action="set-currency"
+              aria-label="Currency for prices"
+              title="Currency for prices"
+              class="text-sm bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-slate-200 focus:outline-none focus:border-brand">
+              <option value="AUD">AUD $</option>
+              <option value="GBP">GBP £</option>
+            </select>
+          </div>
+          <p id="pantry-count" class="text-xs text-slate-400"></p>
+          <div id="basket-list" class="space-y-2"></div>
+        </div>
+        <div class="flex gap-2">
+          <button
+            data-goto="target"
+            class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">
+            ← Back</button
+          ><button
+            data-goto="meals"
+            class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">
+            Next: Make your meals →
+          </button>
+        </div>
+      </section>
+
+      <!-- 3. Meals -->
+      <section
+        data-panel="meals"
+        id="panel-meals"
+        role="tabpanel"
+        aria-labelledby="tab-meals"
+        class="space-y-6 hidden">
+        <div
+          class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2
+              class="text-sm font-bold uppercase tracking-wider text-slate-400">
+              3. Your Meals &amp; Snacks
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">
+              Build a meal from foods in your pantry.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              data-action="open-section-json"
+              data-kind="meals"
+              title="Add meals from JSON (pasted or a .json file)"
+              class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg border border-slate-600 transition-colors">
+              { } Add JSON
+            </button>
+            <button
+              data-action="open-meal"
+              class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-4 rounded-lg transition-colors">
+              + Create a meal
+            </button>
+          </div>
+        </div>
+
+        <div id="meal-list" class="space-y-4"></div>
+        <div class="flex gap-2">
+          <button
+            data-goto="shopping"
+            class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">
+            ← Back</button
+          ><button
+            data-goto="plan"
+            class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">
+            Next: Plan your week →
+          </button>
+        </div>
+      </section>
+
+      <!-- 4. Week plan -->
+      <section
+        data-panel="plan"
+        id="panel-plan"
+        role="tabpanel"
+        aria-labelledby="tab-plan"
+        class="space-y-6 hidden">
+        <div
+          class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2
+              class="text-sm font-bold uppercase tracking-wider text-slate-400">
+              4. Left to Plan This Week
+            </h2>
+            <div class="flex gap-2">
+              <button
+                data-action="autofill"
+                class="text-xs bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-1.5 px-3 rounded transition-colors">
+                Auto-fill week
+              </button>
+              <button
+                data-action="shuffle-week"
+                title="Not happy with the layout? Shuffles the whole week into a different set of meals, portions still fitted"
+                class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-1.5 px-3 rounded border border-slate-600 transition-colors">
+                🎲 Shuffle week
+              </button>
+              <button
+                data-action="fit-portions"
+                title="Keeps your meals, resizes every portion so each day hits your calorie target"
+                class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-1.5 px-3 rounded border border-slate-600 transition-colors">
+                ⚖️ Fit portions
+              </button>
+              <button
+                data-action="clear-plan"
+                data-confirm="Click again to clear the week"
+                class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">
+                Clear
+              </button>
             </div>
           </div>
-          <div>
-            <label for="ff-fibre" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Fibre</label>
-            <div class="relative">
-              <input id="ff-fibre" type="number" step="any" min="0" placeholder="—" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600 pr-10">
-              <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">g</span>
+          <div id="plan-people-note"></div>
+          <div
+            id="meals-per-day"
+            class="flex flex-wrap items-center gap-2 text-xs text-slate-300"></div>
+          <div
+            id="plan-left"
+            class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+          <div id="plan-rules" class="pt-3 border-t border-slate-700/60"></div>
+          <div id="macro-lean" class="pt-3 border-t border-slate-700/60"></div>
+          <details class="micro-fold pt-3 border-t border-slate-700/60">
+            <summary>
+              <span class="fold-arrow">▸</span> ℹ️ How Auto-fill, Shuffle and
+              Fit portions work
+            </summary>
+            <p class="text-xs text-slate-400 pt-2">
+              Auto-fill spreads your own meals across the week (keeping to the
+              repeat limit) and adds a snack or two, then tries swapping in
+              other meals wherever that brings a day closer to your targets. For
+              each day it works out the portion sizes (🔗 ratio ingredients
+              scale together) and ↕ range amounts that land on your calories
+              first, then protein, carbs and fat. 📌 fixed ones never change.
+              Picked meals yourself? Hit ⚖️ Fit portions. Don't fancy the whole
+              layout? 🎲 Shuffle week deals the meals out differently each time.
+              Don't fancy one meal? Its own 🎲 swaps it for a different one that
+              still fits the day. The small box is the portion size; the Ready
+              tab turns it all into grams.
+            </p>
+          </details>
+          <div id="plan-warnings"></div>
+        </div>
+        <div id="day-picker" class="md:hidden"></div>
+        <div
+          id="plan-grid"
+          class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+        <div class="flex gap-2">
+          <button
+            data-goto="meals"
+            class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">
+            ← Back</button
+          ><button
+            data-goto="stock"
+            class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">
+            Next: What's already at home →
+          </button>
+        </div>
+      </section>
+
+      <!-- 5. At home: what's already in the house comes off the shopping list -->
+      <section
+        data-panel="stock"
+        id="panel-stock"
+        role="tabpanel"
+        aria-labelledby="tab-stock"
+        class="space-y-6 hidden">
+        <div
+          class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2
+                class="text-sm font-bold uppercase tracking-wider text-slate-400">
+                5. Already at Home
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">
+                Check your cupboards, fridge and freezer. Type how much of each
+                you've got (a count for things like eggs and apples, raw grams
+                for the rest) and it comes off the shopping list.
+                <b>All</b> means you've got enough.
+              </p>
+            </div>
+            <button
+              data-action="clear-stock"
+              data-confirm="Click again to clear"
+              class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">
+              Clear
+            </button>
+          </div>
+          <div id="stock-summary"></div>
+        </div>
+        <div id="stock-list" class="space-y-4"></div>
+        <div class="flex gap-2">
+          <button
+            data-goto="plan"
+            class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">
+            ← Back</button
+          ><button
+            data-goto="summary"
+            class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">
+            Finish: See my lists →
+          </button>
+        </div>
+      </section>
+
+      <!-- 6. Summary -->
+      <section
+        data-panel="summary"
+        id="panel-summary"
+        role="tabpanel"
+        aria-labelledby="tab-summary"
+        class="space-y-6 hidden">
+        <div class="no-print grid grid-cols-2 sm:flex gap-2">
+          <button
+            data-action="copy-shopping"
+            class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-100 font-semibold py-2 px-3 rounded-lg transition-colors">
+            Copy shopping list
+          </button>
+          <button
+            data-action="copy-meals"
+            class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-100 font-semibold py-2 px-3 rounded-lg transition-colors">
+            Copy meal plan
+          </button>
+          <button
+            data-action="share"
+            class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-100 font-semibold py-2 px-3 rounded-lg transition-colors">
+            🔗 Share link
+          </button>
+          <button
+            data-action="print"
+            class="flex-1 bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-3 rounded-lg transition-colors">
+            Print
+          </button>
+        </div>
+        <div id="share-out" class="no-print"></div>
+        <div id="summary-content" class="space-y-6"></div>
+        <button
+          data-goto="stock"
+          class="no-print bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2.5 px-4 rounded-lg transition-colors">
+          ← Back
+        </button>
+      </section>
+    </div>
+
+    <!-- Food modal: add a food from its label -->
+    <dialog
+      id="food-modal"
+      aria-labelledby="food-modal-title"
+      class="no-print w-[calc(100vw-2rem)] max-w-3xl max-h-[calc(100vh-2rem)] bg-slate-800 text-slate-100 rounded-xl border border-slate-700 shadow-2xl p-0 backdrop:bg-black/60 open:flex flex-col overflow-hidden">
+      <!-- Header stays put while the body scrolls -->
+      <div
+        class="shrink-0 flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-700">
+        <h2 id="food-modal-title" class="text-lg font-bold text-slate-100">
+          Add a Food
+        </h2>
+        <button
+          type="button"
+          data-action="close-food"
+          class="text-slate-400 hover:text-slate-100 px-2 py-1 rounded hover:bg-slate-700"
+          aria-label="Close">
+          ✕
+        </button>
+      </div>
+      <form id="food-form" class="flex-1 min-h-0 flex flex-col">
+        <div class="flex-1 overflow-y-auto px-5 py-5 space-y-7">
+          <!-- 1. What it is -->
+          <section
+            class="grid grid-cols-1 sm:grid-cols-[1fr_14rem] gap-3"
+            aria-label="Food details">
+            <div>
+              <label
+                for="ff-name"
+                class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Name</label
+              >
+              <input
+                id="ff-name"
+                required
+                placeholder="e.g. Rolled oats"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600" />
+            </div>
+            <div>
+              <label
+                for="ff-category"
+                class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Aisle</label
+              >
+              <select
+                id="ff-category"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand"></select>
+            </div>
+          </section>
+
+          <!-- 2. Nutrition from the label -->
+          <section class="space-y-3" aria-labelledby="ff-nutrition-title">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h3
+                id="ff-nutrition-title"
+                class="text-sm font-bold uppercase tracking-wider text-slate-300">
+                Nutrition
+                <span class="normal-case font-normal text-slate-400"
+                  >per 100g</span
+                >
+              </h3>
+              <div class="flex items-center gap-2 text-xs">
+                <span class="text-slate-400">Energy in</span>
+                <div
+                  id="ff-energy-unit"
+                  role="group"
+                  aria-label="Energy unit"
+                  class="flex bg-slate-900 rounded-lg p-0.5 border border-slate-700 font-semibold"></div>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div class="col-span-2 sm:col-span-1">
+                <label
+                  for="ff-cals"
+                  class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                  >Energy</label
+                >
+                <div class="relative">
+                  <input
+                    id="ff-cals"
+                    type="number"
+                    step="any"
+                    min="0"
+                    required
+                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600 pr-12" />
+                  <span
+                    id="ff-cals-unit"
+                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500"
+                    >kcal</span
+                  >
+                </div>
+              </div>
+              <div>
+                <label
+                  for="ff-protein"
+                  class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                  >Protein</label
+                >
+                <div class="relative">
+                  <input
+                    id="ff-protein"
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder="0"
+                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600 pr-10" />
+                  <span
+                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500"
+                    >g</span
+                  >
+                </div>
+              </div>
+              <div>
+                <label
+                  for="ff-carbs"
+                  class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                  >Carbs</label
+                >
+                <div class="relative">
+                  <input
+                    id="ff-carbs"
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder="0"
+                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600 pr-10" />
+                  <span
+                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500"
+                    >g</span
+                  >
+                </div>
+              </div>
+              <div>
+                <label
+                  for="ff-fat"
+                  class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                  >Fat</label
+                >
+                <div class="relative">
+                  <input
+                    id="ff-fat"
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder="0"
+                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600 pr-10" />
+                  <span
+                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500"
+                    >g</span
+                  >
+                </div>
+              </div>
+              <div>
+                <label
+                  for="ff-fibre"
+                  class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                  >Fibre</label
+                >
+                <div class="relative">
+                  <input
+                    id="ff-fibre"
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder="—"
+                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600 pr-10" />
+                  <span
+                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500"
+                    >g</span
+                  >
+                </div>
+              </div>
+            </div>
+            <div
+              id="ff-preview"
+              class="text-xs text-slate-400 empty:hidden space-y-0.5"></div>
+          </section>
+
+          <!-- 3. Vitamins & minerals (optional) -->
+          <details id="ff-more" open class="group space-y-3">
+            <summary
+              class="cursor-pointer select-none list-none flex items-baseline gap-2">
+              <span
+                class="text-slate-500 group-open:rotate-90 transition-transform"
+                aria-hidden="true"
+                >▸</span
+              >
+              <h3
+                class="flex-1 min-w-0 text-sm font-bold uppercase tracking-wider text-slate-300">
+                🥗 Vitamins &amp; minerals
+                <span class="normal-case font-normal text-slate-400"
+                  >per 100g · optional</span
+                >
+              </h3>
+              <span
+                id="ff-micro-count"
+                class="shrink-0 text-xs text-slate-400"></span>
+            </summary>
+            <p class="text-xs text-slate-400">
+              Labels usually only show sat fat, sugars and sodium. For the rest,
+              look the food up in the Australian Food Composition Database or UK
+              CoFID.
+              <b class="text-slate-300">Leave a box blank if you don't know</b>
+              — blank means unknown, not zero.
+            </p>
+            <div id="ff-micros" class="space-y-4"></div>
+          </details>
+        </div>
+
+        <!-- Footer stays put: save is always in reach -->
+        <div
+          class="shrink-0 flex items-center justify-end gap-2 px-5 py-3 border-t border-slate-700 bg-slate-800">
+          <button
+            type="button"
+            data-action="close-food"
+            class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg transition-colors">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            id="ff-submit"
+            class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-6 rounded-lg transition-colors">
+            Add food
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Supplement modal: add a supplement or edit one -->
+    <dialog
+      id="supp-modal"
+      aria-labelledby="supp-modal-title"
+      class="no-print w-[calc(100vw-2rem)] max-w-2xl max-h-[calc(100vh-2rem)] bg-slate-800 text-slate-100 rounded-xl border border-slate-700 shadow-2xl p-0 backdrop:bg-black/60">
+      <div class="p-5 space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <h2 id="supp-modal-title" class="text-lg font-bold text-slate-100">
+            Add a Supplement
+          </h2>
+          <button
+            data-action="close-supp"
+            class="text-slate-400 hover:text-slate-100 px-2 py-1 rounded hover:bg-slate-700"
+            aria-label="Close">
+            ✕
+          </button>
+        </div>
+        <form id="supp-form" class="space-y-3">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="col-span-2 sm:col-span-4">
+              <label
+                for="sp-name"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Name</label
+              >
+              <input
+                id="sp-name"
+                required
+                placeholder="e.g. Creatine"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand" />
+            </div>
+            <div>
+              <label
+                for="sp-dose"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Dose</label
+              >
+              <input
+                id="sp-dose"
+                type="number"
+                step="any"
+                min="0"
+                required
+                placeholder="5"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand" />
+            </div>
+            <div>
+              <label
+                for="sp-unit"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Unit</label
+              >
+              <select
+                id="sp-unit"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand"></select>
+            </div>
+            <div class="col-span-2">
+              <label
+                for="sp-timing"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >When</label
+              >
+              <select
+                id="sp-timing"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand"></select>
             </div>
           </div>
+          <fieldset>
+            <legend
+              class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">
+              Days
+            </legend>
+            <div
+              id="sp-days"
+              class="flex flex-wrap gap-x-4 gap-y-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2"></div>
+          </fieldset>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label
+                for="sp-servings"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Doses per pack</label
+              >
+              <input
+                id="sp-servings"
+                type="number"
+                step="1"
+                min="0"
+                placeholder="optional"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-500" />
+            </div>
+            <div>
+              <label
+                for="sp-price"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Price per pack</label
+              >
+              <input
+                id="sp-price"
+                type="number"
+                step="any"
+                min="0"
+                placeholder="optional"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-500" />
+            </div>
           </div>
-          <div id="ff-preview" class="text-xs text-slate-400 empty:hidden space-y-0.5"></div>
+          <details
+            id="sp-more"
+            class="bg-slate-900/60 border border-slate-700/50 rounded-lg">
+            <summary
+              class="cursor-pointer select-none px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Nutrition per dose (optional)
+            </summary>
+            <div class="px-3 pb-3 space-y-3">
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>
+                  <label
+                    for="sp-kcal"
+                    class="block text-[11px] text-slate-400 mb-0.5"
+                    >Energy (kcal)</label
+                  ><input
+                    id="sp-kcal"
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder="0"
+                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600" />
+                </div>
+                <div>
+                  <label
+                    for="sp-protein"
+                    class="block text-[11px] text-slate-400 mb-0.5"
+                    >Protein (g)</label
+                  ><input
+                    id="sp-protein"
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder="0"
+                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600" />
+                </div>
+                <div>
+                  <label
+                    for="sp-carbs"
+                    class="block text-[11px] text-slate-400 mb-0.5"
+                    >Carbs (g)</label
+                  ><input
+                    id="sp-carbs"
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder="0"
+                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600" />
+                </div>
+                <div>
+                  <label
+                    for="sp-fat"
+                    class="block text-[11px] text-slate-400 mb-0.5"
+                    >Fat (g)</label
+                  ><input
+                    id="sp-fat"
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder="0"
+                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600" />
+                </div>
+              </div>
+              <div id="sp-micros" class="space-y-3"></div>
+            </div>
+          </details>
+          <button
+            type="submit"
+            class="w-full bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">
+            Save supplement
+          </button>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- Meal builder modal: create a new meal or edit a saved one -->
+    <dialog
+      id="meal-modal"
+      aria-labelledby="builder-title"
+      class="no-print w-[calc(100vw-2rem)] max-w-3xl max-h-[calc(100vh-2rem)] bg-slate-800 text-slate-100 rounded-xl border border-slate-700 shadow-2xl p-0 backdrop:bg-black/60 open:flex flex-col overflow-hidden">
+      <!-- Header stays put while the body scrolls -->
+      <div
+        class="shrink-0 flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-700">
+        <h2 id="builder-title" class="text-lg font-bold text-slate-100">
+          Create a Meal or Snack
+        </h2>
+        <button
+          data-action="close-meal"
+          class="text-slate-400 hover:text-slate-100 px-2 py-1 rounded hover:bg-slate-700"
+          aria-label="Close">
+          ✕
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto px-5 py-5 space-y-7">
+        <!-- 1. What it is -->
+        <section class="space-y-3" aria-label="Meal details">
+          <div>
+            <label
+              for="mb-name"
+              class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1"
+              >Name</label
+            >
+            <input
+              id="mb-name"
+              placeholder="e.g. Chicken, rice &amp; broccoli"
+              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-500" />
+          </div>
+          <div>
+            <span
+              id="mb-type-label"
+              class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5"
+              >Good for</span
+            >
+            <div
+              id="mb-type"
+              role="group"
+              aria-labelledby="mb-type-label"
+              class="flex flex-wrap gap-2">
+              <label class="mb-chip"
+                ><input
+                  type="checkbox"
+                  data-mb-type
+                  value="breakfast"
+                  checked
+                  class="sr-only peer" /><span
+                  class="peer-checked:inline hidden"
+                  aria-hidden="true"
+                  >✓</span
+                >Breakfast</label
+              >
+              <label class="mb-chip"
+                ><input
+                  type="checkbox"
+                  data-mb-type
+                  value="lunch"
+                  class="sr-only peer" /><span
+                  class="peer-checked:inline hidden"
+                  aria-hidden="true"
+                  >✓</span
+                >Lunch</label
+              >
+              <label class="mb-chip"
+                ><input
+                  type="checkbox"
+                  data-mb-type
+                  value="dinner"
+                  class="sr-only peer" /><span
+                  class="peer-checked:inline hidden"
+                  aria-hidden="true"
+                  >✓</span
+                >Dinner</label
+              >
+              <label class="mb-chip"
+                ><input
+                  type="checkbox"
+                  data-mb-type
+                  value="snack"
+                  class="sr-only peer" /><span
+                  class="peer-checked:inline hidden"
+                  aria-hidden="true"
+                  >✓</span
+                >Snack</label
+              >
+            </div>
+          </div>
         </section>
 
-        <!-- 3. Vitamins & minerals (optional) -->
-        <details id="ff-more" open class="group space-y-3">
-          <summary class="cursor-pointer select-none list-none flex items-baseline gap-2">
-            <span class="text-slate-500 group-open:rotate-90 transition-transform" aria-hidden="true">▸</span>
-            <h3 class="flex-1 min-w-0 text-sm font-bold uppercase tracking-wider text-slate-300">🥗 Vitamins &amp; minerals <span class="normal-case font-normal text-slate-400">per 100g · optional</span></h3>
-            <span id="ff-micro-count" class="shrink-0 text-xs text-slate-400"></span>
-          </summary>
-          <p class="text-xs text-slate-400">Labels usually only show sat fat, sugars and sodium. For the rest, look the food up in the Australian Food Composition Database or UK CoFID. <b class="text-slate-300">Leave a box blank if you don't know</b> — blank means unknown, not zero.</p>
-          <div id="ff-micros" class="space-y-4"></div>
-        </details>
+        <!-- 2. Ingredients -->
+        <section class="space-y-3" aria-labelledby="mb-ingredients-title">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3
+              id="mb-ingredients-title"
+              class="text-sm font-bold uppercase tracking-wider text-slate-300">
+              Ingredients
+            </h3>
+            <div id="weight-mode"></div>
+          </div>
+          <div id="weight-mode-note"></div>
+          <div class="flex flex-wrap sm:flex-nowrap gap-2 items-end">
+            <div class="basis-full sm:basis-0 flex-1 min-w-0 relative">
+              <label
+                for="mb-search"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Add a food</label
+              >
+              <input
+                id="mb-search"
+                type="search"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="🔍 Search, e.g. rice, broccoli…"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="mb-results"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-500" />
+              <ul
+                id="mb-results"
+                role="listbox"
+                class="hidden absolute z-30 left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-slate-900 border border-slate-600 rounded-lg shadow-xl"></ul>
+            </div>
+            <div class="flex-1 sm:flex-none sm:w-28">
+              <label
+                id="mb-grams-label"
+                for="mb-grams"
+                class="block text-[11px] font-semibold uppercase tracking-wide mb-1 text-brand"
+                >Grams</label
+              >
+              <input
+                id="mb-grams"
+                type="number"
+                step="any"
+                min="0"
+                value="100"
+                class="w-full bg-slate-900 border border-brand/50 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand" />
+            </div>
+            <button
+              data-action="add-ingredient"
+              class="shrink-0 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-100 font-semibold px-4 py-2 rounded-lg transition-colors">
+              Add
+            </button>
+          </div>
+          <div id="draft-list"></div>
+          <details class="group text-xs text-slate-400">
+            <summary
+              class="cursor-pointer select-none text-slate-400 hover:text-slate-200 w-max">
+              ⓘ How 🔗 Ratio, 📌 Fixed and ↕ Range work
+            </summary>
+            <ul class="mt-2 space-y-1 pl-4 list-disc marker:text-slate-600">
+              <li>
+                <b class="text-slate-300">🔗 Ratio</b> ingredients stay locked
+                together (100g oats : 300g milk) and are scaled up or down to
+                fit your day. For a batch, weights are for the whole pot.
+              </li>
+              <li>
+                <b class="text-slate-300">📌 Fixed</b> is the same in every
+                portion (1 banana).
+              </li>
+              <li>
+                <b class="text-slate-300">↕ Range</b> lets the planner pick an
+                amount between a min and max per portion (peanut butter 0–30g).
+              </li>
+            </ul>
+          </details>
+          <div id="mb-target"></div>
+        </section>
+
+        <!-- 3. Portions & storage -->
+        <section class="space-y-3" aria-labelledby="mb-storage-title">
+          <h3
+            id="mb-storage-title"
+            class="text-sm font-bold uppercase tracking-wider text-slate-300">
+            Portions &amp; storage
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label
+                for="mb-servings"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Portions the recipe makes</label
+              >
+              <div class="flex">
+                <button
+                  type="button"
+                  data-action="step-input"
+                  data-target="mb-servings"
+                  data-step="-1"
+                  class="mb-step rounded-l-lg"
+                  aria-label="One fewer portion">
+                  −
+                </button>
+                <input
+                  id="mb-servings"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="1"
+                  class="w-full min-w-0 bg-slate-900 border-y border-slate-700 px-3 py-2 text-center text-slate-100 focus:outline-none focus:border-brand" />
+                <button
+                  type="button"
+                  data-action="step-input"
+                  data-target="mb-servings"
+                  data-step="1"
+                  class="mb-step rounded-r-lg"
+                  aria-label="One more portion">
+                  +
+                </button>
+              </div>
+            </div>
+            <div id="mb-fridge-field">
+              <label
+                for="mb-fridge"
+                class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1"
+                >Keeps in the fridge</label
+              >
+              <div class="flex">
+                <button
+                  type="button"
+                  data-action="step-input"
+                  data-target="mb-fridge"
+                  data-step="-1"
+                  class="mb-step rounded-l-lg"
+                  aria-label="One day less">
+                  −
+                </button>
+                <div class="relative w-full min-w-0">
+                  <input
+                    id="mb-fridge"
+                    type="number"
+                    min="1"
+                    max="7"
+                    step="1"
+                    value="3"
+                    class="w-full bg-slate-900 border-y border-slate-700 px-3 py-2 pr-12 text-center text-slate-100 focus:outline-none focus:border-brand" />
+                  <span
+                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500"
+                    >days</span
+                  >
+                </div>
+                <button
+                  type="button"
+                  data-action="step-input"
+                  data-target="mb-fridge"
+                  data-step="1"
+                  class="mb-step rounded-r-lg"
+                  aria-label="One day more">
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="mb-toggle">
+              <input
+                id="mb-prep-ahead"
+                type="checkbox"
+                class="w-4 h-4 mt-0.5 accent-emerald-400 shrink-0" />
+              <span
+                ><span class="font-semibold">🍱 Make ahead on prep day</span
+                ><span class="block text-xs text-slate-400"
+                  >One-portion recipe, made for the whole week in one go and
+                  boxed whole (burritos, wraps, muffins).</span
+                ></span
+              >
+            </label>
+            <label id="mb-freezes-field" class="mb-toggle">
+              <input
+                id="mb-freezes"
+                type="checkbox"
+                class="w-4 h-4 mt-0.5 accent-emerald-400 shrink-0" />
+              <span
+                ><span class="font-semibold">🧊 Freezes well</span
+                ><span class="block text-xs text-slate-400"
+                  >Boxes eaten after their fridge life go in the freezer, with a
+                  🌙 reminder to move them.</span
+                ></span
+              >
+            </label>
+          </div>
+          <p
+            id="mb-storage-hint"
+            class="text-xs rounded-lg px-3 py-2 border"></p>
+        </section>
       </div>
 
       <!-- Footer stays put: save is always in reach -->
-      <div class="shrink-0 flex items-center justify-end gap-2 px-5 py-3 border-t border-slate-700 bg-slate-800">
-        <button type="button" data-action="close-food" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg transition-colors">Cancel</button>
-        <button type="submit" id="ff-submit" class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-6 rounded-lg transition-colors">Add food</button>
+      <div
+        class="shrink-0 flex items-center gap-2 px-5 py-3 border-t border-slate-700 bg-slate-800">
+        <button
+          data-action="reset-draft"
+          class="text-sm text-slate-400 hover:text-rose-300 px-2 py-2 rounded transition-colors"
+          title="Empty the form and start again">
+          Start over
+        </button>
+        <span class="flex-1"></span>
+        <button
+          data-action="close-meal"
+          class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg transition-colors">
+          Cancel
+        </button>
+        <button
+          data-action="save-meal"
+          id="mb-save"
+          class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-6 rounded-lg transition-colors">
+          Save meal
+        </button>
       </div>
-    </form>
-  </dialog>
+    </dialog>
 
-  <!-- Supplement modal: add a supplement or edit one -->
-  <dialog id="supp-modal" aria-labelledby="supp-modal-title" class="no-print w-[calc(100vw-2rem)] max-w-2xl max-h-[calc(100vh-2rem)] bg-slate-800 text-slate-100 rounded-xl border border-slate-700 shadow-2xl p-0 backdrop:bg-black/60">
-    <div class="p-5 space-y-4">
-      <div class="flex items-center justify-between gap-3">
-        <h2 id="supp-modal-title" class="text-lg font-bold text-slate-100">Add a Supplement</h2>
-        <button data-action="close-supp" class="text-slate-400 hover:text-slate-100 px-2 py-1 rounded hover:bg-slate-700" aria-label="Close">✕</button>
-      </div>
-      <form id="supp-form" class="space-y-3">
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div class="col-span-2 sm:col-span-4">
-            <label for="sp-name" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Name</label>
-            <input id="sp-name" required placeholder="e.g. Creatine" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand">
-          </div>
-          <div>
-            <label for="sp-dose" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Dose</label>
-            <input id="sp-dose" type="number" step="any" min="0" required placeholder="5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand">
-          </div>
-          <div>
-            <label for="sp-unit" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Unit</label>
-            <select id="sp-unit" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand"></select>
-          </div>
-          <div class="col-span-2">
-            <label for="sp-timing" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">When</label>
-            <select id="sp-timing" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand"></select>
-          </div>
-        </div>
-        <fieldset>
-          <legend class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Days</legend>
-          <div id="sp-days" class="flex flex-wrap gap-x-4 gap-y-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2"></div>
-        </fieldset>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label for="sp-servings" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Doses per pack</label>
-            <input id="sp-servings" type="number" step="1" min="0" placeholder="optional" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-500">
-          </div>
-          <div>
-            <label for="sp-price" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Price per pack</label>
-            <input id="sp-price" type="number" step="any" min="0" placeholder="optional" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-500">
-          </div>
-        </div>
-        <details id="sp-more" class="bg-slate-900/60 border border-slate-700/50 rounded-lg">
-          <summary class="cursor-pointer select-none px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Nutrition per dose (optional)</summary>
-          <div class="px-3 pb-3 space-y-3">
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <div><label for="sp-kcal" class="block text-[11px] text-slate-400 mb-0.5">Energy (kcal)</label><input id="sp-kcal" type="number" step="any" min="0" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600"></div>
-              <div><label for="sp-protein" class="block text-[11px] text-slate-400 mb-0.5">Protein (g)</label><input id="sp-protein" type="number" step="any" min="0" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600"></div>
-              <div><label for="sp-carbs" class="block text-[11px] text-slate-400 mb-0.5">Carbs (g)</label><input id="sp-carbs" type="number" step="any" min="0" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600"></div>
-              <div><label for="sp-fat" class="block text-[11px] text-slate-400 mb-0.5">Fat (g)</label><input id="sp-fat" type="number" step="any" min="0" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-600"></div>
-            </div>
-            <div id="sp-micros" class="space-y-3"></div>
-          </div>
-        </details>
-        <button type="submit" class="w-full bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2.5 rounded-lg transition-colors">Save supplement</button>
-      </form>
-    </div>
-  </dialog>
-
-  <!-- Meal builder modal: create a new meal or edit a saved one -->
-  <dialog id="meal-modal" aria-labelledby="builder-title" class="no-print w-[calc(100vw-2rem)] max-w-3xl max-h-[calc(100vh-2rem)] bg-slate-800 text-slate-100 rounded-xl border border-slate-700 shadow-2xl p-0 backdrop:bg-black/60 open:flex flex-col overflow-hidden">
-    <!-- Header stays put while the body scrolls -->
-    <div class="shrink-0 flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-700">
-      <h2 id="builder-title" class="text-lg font-bold text-slate-100">Create a Meal or Snack</h2>
-      <button data-action="close-meal" class="text-slate-400 hover:text-slate-100 px-2 py-1 rounded hover:bg-slate-700" aria-label="Close">✕</button>
-    </div>
-
-    <div class="flex-1 overflow-y-auto px-5 py-5 space-y-7">
-      <!-- 1. What it is -->
-      <section class="space-y-3" aria-label="Meal details">
-        <div>
-          <label for="mb-name" class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Name</label>
-          <input id="mb-name" placeholder="e.g. Chicken, rice &amp; broccoli" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-500">
-        </div>
-        <div>
-          <span id="mb-type-label" class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Good for</span>
-          <div id="mb-type" role="group" aria-labelledby="mb-type-label" class="flex flex-wrap gap-2">
-            <label class="mb-chip"><input type="checkbox" data-mb-type value="breakfast" checked class="sr-only peer"><span class="peer-checked:inline hidden" aria-hidden="true">✓</span>Breakfast</label>
-            <label class="mb-chip"><input type="checkbox" data-mb-type value="lunch" class="sr-only peer"><span class="peer-checked:inline hidden" aria-hidden="true">✓</span>Lunch</label>
-            <label class="mb-chip"><input type="checkbox" data-mb-type value="dinner" class="sr-only peer"><span class="peer-checked:inline hidden" aria-hidden="true">✓</span>Dinner</label>
-            <label class="mb-chip"><input type="checkbox" data-mb-type value="snack" class="sr-only peer"><span class="peer-checked:inline hidden" aria-hidden="true">✓</span>Snack</label>
-          </div>
-        </div>
-      </section>
-
-      <!-- 2. Ingredients -->
-      <section class="space-y-3" aria-labelledby="mb-ingredients-title">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h3 id="mb-ingredients-title" class="text-sm font-bold uppercase tracking-wider text-slate-300">Ingredients</h3>
-          <div id="weight-mode"></div>
-        </div>
-        <div id="weight-mode-note"></div>
-        <div class="flex flex-wrap sm:flex-nowrap gap-2 items-end">
-          <div class="basis-full sm:basis-0 flex-1 min-w-0 relative">
-            <label for="mb-search" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Add a food</label>
-            <input id="mb-search" type="search" autocomplete="off" spellcheck="false" placeholder="🔍 Search, e.g. rice, broccoli…"
-              role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="mb-results"
-              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand placeholder-slate-500">
-            <ul id="mb-results" role="listbox" class="hidden absolute z-30 left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-slate-900 border border-slate-600 rounded-lg shadow-xl"></ul>
-          </div>
-          <div class="flex-1 sm:flex-none sm:w-28">
-            <label id="mb-grams-label" for="mb-grams" class="block text-[11px] font-semibold uppercase tracking-wide mb-1 text-brand">Grams</label>
-            <input id="mb-grams" type="number" step="any" min="0" value="100" class="w-full bg-slate-900 border border-brand/50 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-brand">
-          </div>
-          <button data-action="add-ingredient" class="shrink-0 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-100 font-semibold px-4 py-2 rounded-lg transition-colors">Add</button>
-        </div>
-        <div id="draft-list"></div>
-        <details class="group text-xs text-slate-400">
-          <summary class="cursor-pointer select-none text-slate-400 hover:text-slate-200 w-max">ⓘ How 🔗 Ratio, 📌 Fixed and ↕ Range work</summary>
-          <ul class="mt-2 space-y-1 pl-4 list-disc marker:text-slate-600">
-            <li><b class="text-slate-300">🔗 Ratio</b> ingredients stay locked together (100g oats : 300g milk) and are scaled up or down to fit your day. For a batch, weights are for the whole pot.</li>
-            <li><b class="text-slate-300">📌 Fixed</b> is the same in every portion (1 banana).</li>
-            <li><b class="text-slate-300">↕ Range</b> lets the planner pick an amount between a min and max per portion (peanut butter 0–30g).</li>
-          </ul>
-        </details>
-        <div id="mb-target"></div>
-      </section>
-
-      <!-- 3. Portions & storage -->
-      <section class="space-y-3" aria-labelledby="mb-storage-title">
-        <h3 id="mb-storage-title" class="text-sm font-bold uppercase tracking-wider text-slate-300">Portions &amp; storage</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label for="mb-servings" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Portions the recipe makes</label>
-            <div class="flex">
-              <button type="button" data-action="step-input" data-target="mb-servings" data-step="-1" class="mb-step rounded-l-lg" aria-label="One fewer portion">−</button>
-              <input id="mb-servings" type="number" min="1" step="1" value="1" class="w-full min-w-0 bg-slate-900 border-y border-slate-700 px-3 py-2 text-center text-slate-100 focus:outline-none focus:border-brand">
-              <button type="button" data-action="step-input" data-target="mb-servings" data-step="1" class="mb-step rounded-r-lg" aria-label="One more portion">+</button>
-            </div>
-          </div>
-          <div id="mb-fridge-field">
-            <label for="mb-fridge" class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Keeps in the fridge</label>
-            <div class="flex">
-              <button type="button" data-action="step-input" data-target="mb-fridge" data-step="-1" class="mb-step rounded-l-lg" aria-label="One day less">−</button>
-              <div class="relative w-full min-w-0">
-                <input id="mb-fridge" type="number" min="1" max="7" step="1" value="3" class="w-full bg-slate-900 border-y border-slate-700 px-3 py-2 pr-12 text-center text-slate-100 focus:outline-none focus:border-brand">
-                <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">days</span>
-              </div>
-              <button type="button" data-action="step-input" data-target="mb-fridge" data-step="1" class="mb-step rounded-r-lg" aria-label="One day more">+</button>
-            </div>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label class="mb-toggle">
-            <input id="mb-prep-ahead" type="checkbox" class="w-4 h-4 mt-0.5 accent-emerald-400 shrink-0">
-            <span><span class="font-semibold">🍱 Make ahead on prep day</span><span class="block text-xs text-slate-400">One-portion recipe, made for the whole week in one go and boxed whole (burritos, wraps, muffins).</span></span>
-          </label>
-          <label id="mb-freezes-field" class="mb-toggle">
-            <input id="mb-freezes" type="checkbox" class="w-4 h-4 mt-0.5 accent-emerald-400 shrink-0">
-            <span><span class="font-semibold">🧊 Freezes well</span><span class="block text-xs text-slate-400">Boxes eaten after their fridge life go in the freezer, with a 🌙 reminder to move them.</span></span>
-          </label>
-        </div>
-        <p id="mb-storage-hint" class="text-xs rounded-lg px-3 py-2 border"></p>
-      </section>
-    </div>
-
-    <!-- Footer stays put: save is always in reach -->
-    <div class="shrink-0 flex items-center gap-2 px-5 py-3 border-t border-slate-700 bg-slate-800">
-      <button data-action="reset-draft" class="text-sm text-slate-400 hover:text-rose-300 px-2 py-2 rounded transition-colors" title="Empty the form and start again">Start over</button>
-      <span class="flex-1"></span>
-      <button data-action="close-meal" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg transition-colors">Cancel</button>
-      <button data-action="save-meal" id="mb-save" class="bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-2 px-6 rounded-lg transition-colors">Save meal</button>
-    </div>
-  </dialog>
-
-  <!-- JSON modal, opened by the header's Load / Save / Example buttons: shows just that section (openJsonModal) -->
-  <dialog id="json-modal" aria-labelledby="json-modal-title" class="no-print w-[calc(100vw-2rem)] max-w-2xl max-h-[calc(100vh-2rem)] bg-slate-800 text-slate-100 rounded-xl border border-slate-700 shadow-2xl p-0 backdrop:bg-black/60">
-    <div class="p-5 space-y-5">
-      <div class="flex items-center justify-between gap-3">
-        <h2 id="json-modal-title" class="text-lg font-bold text-slate-100">Session JSON</h2>
-        <button data-action="close-json" class="text-slate-400 hover:text-slate-100 px-2 py-1 rounded hover:bg-slate-700" aria-label="Close">✕</button>
-      </div>
-
-      <!-- The built-in example (example-data.js) -->
-      <section id="json-examples" class="space-y-3 rounded-lg border border-emerald-800/50 bg-emerald-950/20 p-4">
-        <div>
-          <h3 class="text-xs font-bold uppercase tracking-wider text-brand">📋 Example to start from</h3>
-          <p class="text-xs text-slate-400 mt-1"><span id="example-count"></span> Use it to explore how everything works, or as a starting library you change to suit you.</p>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <button data-action="example-add-foods" class="text-left rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 p-3 transition-colors">
-            <b class="block text-sm text-slate-100">🥫 Add the example foods &amp; meals</b>
-            <span class="block text-[11px] text-slate-400">Into your pantry and meals. Keeps everything you have; anything with the same name is left as yours.</span>
-          </button>
-          <button data-action="example-load" data-confirm="Click again — this replaces your data" class="text-left rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 p-3 transition-colors">
-            <b class="block text-sm text-slate-100">📅 Load the whole example</b>
-            <span class="block text-[11px] text-slate-400">Replaces your targets, foods, meals and week with the example's, for a made-up person. You can Undo straight after.</span>
+    <!-- JSON modal, opened by the header's Load / Save / Example buttons: shows just that section (openJsonModal) -->
+    <dialog
+      id="json-modal"
+      aria-labelledby="json-modal-title"
+      class="no-print w-[calc(100vw-2rem)] max-w-2xl max-h-[calc(100vh-2rem)] bg-slate-800 text-slate-100 rounded-xl border border-slate-700 shadow-2xl p-0 backdrop:bg-black/60">
+      <div class="p-5 space-y-5">
+        <div class="flex items-center justify-between gap-3">
+          <h2 id="json-modal-title" class="text-lg font-bold text-slate-100">
+            Session JSON
+          </h2>
+          <button
+            data-action="close-json"
+            class="text-slate-400 hover:text-slate-100 px-2 py-1 rounded hover:bg-slate-700"
+            aria-label="Close">
+            ✕
           </button>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <button data-action="example-copy" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">Copy example JSON</button>
-          <button data-action="example-download" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">Download example .json</button>
-        </div>
-      </section>
 
-      <section id="json-load" class="space-y-2">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">From a saved .json file</h3>
-        <p class="text-xs text-slate-400">Replaces your current targets, foods, meals and week. You can Undo straight after.</p>
-        <div data-json-box="modal" data-prompt="Load a saved session"></div>
-      </section>
-
-      <section id="json-save" class="space-y-2">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Your current data</h3>
-          <div class="flex gap-2">
-            <button data-action="copy-json" id="btn-copy-json" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">Copy JSON</button>
-            <button data-action="export" class="text-xs bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-1.5 px-3 rounded transition-colors">Download .json</button>
+        <!-- The built-in example (example-data.js) -->
+        <section
+          id="json-examples"
+          class="space-y-3 rounded-lg border border-emerald-800/50 bg-emerald-950/20 p-4">
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-brand">
+              📋 Example to start from
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">
+              <span id="example-count"></span> Use it to explore how everything
+              works, or as a starting library you change to suit you.
+            </p>
           </div>
-        </div>
-        <textarea id="json-out" readonly rows="10" spellcheck="false" aria-label="Current session as JSON"
-          class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-emerald-400 text-xs font-mono focus:outline-none focus:border-brand resize-y"></textarea>
-      </section>
-    </div>
-  </dialog>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              data-action="example-add-foods"
+              class="text-left rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 p-3 transition-colors">
+              <b class="block text-sm text-slate-100"
+                >🥫 Add the example foods &amp; meals</b
+              >
+              <span class="block text-[11px] text-slate-400"
+                >Into your pantry and meals. Keeps everything you have; anything
+                with the same name is left as yours.</span
+              >
+            </button>
+            <button
+              data-action="example-load"
+              data-confirm="Click again — this replaces your data"
+              class="text-left rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 p-3 transition-colors">
+              <b class="block text-sm text-slate-100"
+                >📅 Load the whole example</b
+              >
+              <span class="block text-[11px] text-slate-400"
+                >Replaces your targets, foods, meals and week with the
+                example's, for a made-up person. You can Undo straight
+                after.</span
+              >
+            </button>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              data-action="example-copy"
+              class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">
+              Copy example JSON
+            </button>
+            <button
+              data-action="example-download"
+              class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">
+              Download example .json
+            </button>
+          </div>
+        </section>
 
-  <!-- { } Add JSON on the Pantry and Meals tabs: adds only foods or only meals (section-json.js) -->
-  <dialog id="section-json-modal" aria-labelledby="section-json-title" class="no-print w-[calc(100vw-2rem)] max-w-xl max-h-[calc(100vh-2rem)] bg-slate-800 text-slate-100 rounded-xl border border-slate-700 shadow-2xl p-0 backdrop:bg-black/60">
-    <div class="p-5 space-y-4">
-      <div class="flex items-center justify-between gap-3">
-        <h2 id="section-json-title" class="text-lg font-bold text-slate-100">Add from JSON</h2>
-        <button data-action="close-section-json" class="text-slate-400 hover:text-slate-100 px-2 py-1 rounded hover:bg-slate-700" aria-label="Close">✕</button>
+        <section id="json-load" class="space-y-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">
+            From a saved .json file
+          </h3>
+          <p class="text-xs text-slate-400">
+            Replaces your current targets, foods, meals and week. You can Undo
+            straight after.
+          </p>
+          <div data-json-box="modal" data-prompt="Load a saved session"></div>
+        </section>
+
+        <section id="json-save" class="space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3
+              class="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Your current data
+            </h3>
+            <div class="flex gap-2">
+              <button
+                data-action="copy-json"
+                id="btn-copy-json"
+                class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded border border-slate-600 transition-colors">
+                Copy JSON
+              </button>
+              <button
+                data-action="export"
+                class="text-xs bg-brand hover:bg-emerald-300 text-slate-950 font-bold py-1.5 px-3 rounded transition-colors">
+                Download .json
+              </button>
+            </div>
+          </div>
+          <textarea
+            id="json-out"
+            readonly
+            rows="10"
+            spellcheck="false"
+            aria-label="Current session as JSON"
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-emerald-400 text-xs font-mono focus:outline-none focus:border-brand resize-y"></textarea>
+        </section>
       </div>
-      <p id="section-json-help" class="text-xs text-slate-400 [&_code]:text-emerald-300"></p>
-      <div data-json-box="section" data-prompt="Add from a .json file"></div>
-      <details class="micro-fold">
-        <summary><span class="fold-arrow">▸</span> Example of the format</summary>
-        <pre id="section-json-sample" class="mt-1.5 bg-slate-950 border border-slate-700 rounded-lg p-2 text-emerald-400 text-xs font-mono whitespace-pre-wrap"></pre>
-      </details>
-    </div>
-  </dialog>
+    </dialog>
 
-  <!-- Filled and printed by "Print box labels" -->
-  <div id="labels-sheet" aria-hidden="true"></div>
+    <!-- { } Add JSON on the Pantry and Meals tabs: adds only foods or only meals (section-json.js) -->
+    <dialog
+      id="section-json-modal"
+      aria-labelledby="section-json-title"
+      class="no-print w-[calc(100vw-2rem)] max-w-xl max-h-[calc(100vh-2rem)] bg-slate-800 text-slate-100 rounded-xl border border-slate-700 shadow-2xl p-0 backdrop:bg-black/60">
+      <div class="p-5 space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <h2 id="section-json-title" class="text-lg font-bold text-slate-100">
+            Add from JSON
+          </h2>
+          <button
+            data-action="close-section-json"
+            class="text-slate-400 hover:text-slate-100 px-2 py-1 rounded hover:bg-slate-700"
+            aria-label="Close">
+            ✕
+          </button>
+        </div>
+        <p
+          id="section-json-help"
+          class="text-xs text-slate-400 [&_code]:text-emerald-300"></p>
+        <div data-json-box="section" data-prompt="Add from a .json file"></div>
+        <details class="micro-fold">
+          <summary>
+            <span class="fold-arrow">▸</span> Example of the format
+          </summary>
+          <pre
+            id="section-json-sample"
+            class="mt-1.5 bg-slate-950 border border-slate-700 rounded-lg p-2 text-emerald-400 text-xs font-mono whitespace-pre-wrap"></pre>
+        </details>
+      </div>
+    </dialog>
 
-  <div id="toast" role="status" aria-live="polite" class="no-print fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 w-max max-w-[calc(100vw-2rem)] bg-brand text-slate-950 font-semibold text-sm px-4 py-2 rounded-lg shadow-lg opacity-0 pointer-events-none transition-opacity"></div>
+    <!-- Filled and printed by "Print box labels" -->
+    <div id="labels-sheet" aria-hidden="true"></div>
 
-  <!-- App code, in load order: each file can use what the files above it define -->
-  <script src="js/constants.js"></script>
-  <script src="js/target-maths.js"></script>
-  <script src="js/state.js"></script>
-  <script src="js/helpers.js"></script>
-  <script src="js/people.js"></script>
-  <script src="js/dislikes.js"></script>
-  <script src="js/micros.js"></script>
-  <script src="js/rules.js"></script>
-  <script src="js/shopping.js"></script>
-  <script src="js/render-core.js"></script>
-  <script src="js/picker.js"></script>
-  <script src="js/render-pantry.js"></script>
-  <script src="js/render-stock.js"></script>
-  <script src="js/render-meals.js"></script>
-  <script src="js/render-week.js"></script>
-  <script src="js/storage.js"></script>
-  <script src="js/render-ready.js"></script>
-  <script src="js/micro-display.js"></script>
-  <script src="js/food-form.js"></script>
-  <script src="js/supplements.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/edit.js"></script>
-  <script src="js/autofill.js"></script>
-  <script src="js/text-export.js"></script>
-  <script src="js/share.js"></script>
-  <script src="js/example-data.js"></script>
-  <script src="js/json-boxes.js"></script>
-  <script src="js/section-json.js"></script>
-  <script src="js/actions.js"></script>
-  <script src="js/events.js"></script>
-  <script src="js/init.js"></script>
-</body>
+    <div
+      id="toast"
+      role="status"
+      aria-live="polite"
+      class="no-print fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 w-max max-w-[calc(100vw-2rem)] bg-brand text-slate-950 font-semibold text-sm px-4 py-2 rounded-lg shadow-lg opacity-0 pointer-events-none transition-opacity"></div>
+
+    <!-- App code, in load order: each file can use what the files above it define -->
+    <script src="js/constants.js"></script>
+    <script src="js/target-maths.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/helpers.js"></script>
+    <script src="js/people.js"></script>
+    <script src="js/dislikes.js"></script>
+    <script src="js/micros.js"></script>
+    <script src="js/rules.js"></script>
+    <script src="js/shopping.js"></script>
+    <script src="js/render-core.js"></script>
+    <script src="js/picker.js"></script>
+    <script src="js/render-pantry.js"></script>
+    <script src="js/render-stock.js"></script>
+    <script src="js/render-meals.js"></script>
+    <script src="js/render-week.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/render-ready.js"></script>
+    <script src="js/micro-display.js"></script>
+    <script src="js/food-form.js"></script>
+    <script src="js/supplements.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/edit.js"></script>
+    <script src="js/autofill.js"></script>
+    <script src="js/text-export.js"></script>
+    <script src="js/share.js"></script>
+    <script src="js/example-data.js"></script>
+    <script src="js/json-boxes.js"></script>
+    <script src="js/section-json.js"></script>
+    <script src="js/actions.js"></script>
+    <script src="js/events.js"></script>
+    <script src="js/init.js"></script>
+  </body>
 </html>

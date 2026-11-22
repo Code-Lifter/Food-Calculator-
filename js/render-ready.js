@@ -99,7 +99,15 @@ function prepMealsHtml(preps, boxes) {
                 const cooked = cookedNote(p.food, p.grams);
                 return `<li><b>${fmtWeight(p.grams)}</b> ${esc(p.food.name)}${cooked ? ` <span class="text-slate-400">(${cooked})</span>` : ''}</li>`;
               }).join('')}</ul>` : ''}
-              <p class="text-xs text-slate-400">📦 ${esc(boxPlacesText(g.boxes))}</p>
+              <div class="space-y-1.5 pt-1">
+                <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">📦 In each box</p>
+                ${boxContents(g).map(c => `
+                  <div class="text-xs bg-slate-950/50 border border-slate-700/50 rounded-md px-2.5 py-1.5">
+                    <div class="font-semibold text-slate-200">${c.boxes.length > 1 ? `${c.boxes.length} boxes: ` : ''}${c.boxes.map(b => esc(boxWhere(b, g.boxes))).join(' · ')}
+                      <span class="font-normal text-slate-400">— ${c.boxes.length > 1 ? 'each ' : ''}≈ ${fmtWeight(c.weight)} cooked</span></div>
+                    <div class="text-slate-400 leading-relaxed">${c.items.map(p => `<b class="text-slate-300">${smallWeight(p.grams)}</b> ${esc(p.food.name)}`).join(' · ')}</div>
+                  </div>`).join('')}
+              </div>
             </div>`;
           }).join('')}
         </div>

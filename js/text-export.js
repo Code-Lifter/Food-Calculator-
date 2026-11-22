@@ -76,10 +76,19 @@ function mealPlanText() {
   const where = b => b.place === 'freezer' ? 'freezer, thawed overnight' : b.place === 'over' ? `⚠ ${b.after} days after prep, doesn't freeze` : 'fridge';
   // Each prep session: what each batch is boxed into and where the boxes go
   const prepText = preps.map((_, i) => {
-    // Each meal, then what goes into its batch (raw weights)
-    const lines = boxGroups(boxes).filter(g => g.session === i).map(g => `  ${g.meal.name}: ${boxPlacesText(g.boxes)}`
-      + batchIngredients(g).map(p => { const c = cookedNote(p.food, p.grams); return `\n    - ${fmtWeight(p.grams)} ${p.food.name}${c ? ` (${c})` : ''}`; }).join(''));
-    return lines.length ? `${prepTitle(i, preps)}\n${lines.join('\n')}` : '';
+    // Each meal: the whole batch to cook, then what goes in each box (raw weights; cooked where it changes)
+    const item = p => { const c = cookedNote(p.food, p.grams); return `${smallWeight(p.grams)} ${p.food.name}${c ? ` (${c})` : ''}`; };
+    const lines = boxGroups(boxes).filter(g => g.session === i).map(g => {
+      const portions = +g.boxes.reduce((n, b) => n + b.size, 0).toFixed(2);
+      const batch = batchIngredients(g).map(p => `\n      - ${item(p)}`).join('');
+      const perBox = boxContents(g).map(c => {
+        const when = c.boxes.map(b => boxWhere(b, g.boxes)).join('; ');
+        const head = c.boxes.length > 1 ? `${c.boxes.length} boxes (${when}) — each ≈ ${fmtWeight(c.weight)} cooked` : `Box (${when}) — ≈ ${fmtWeight(c.weight)} cooked`;
+        return `\n    ${head}:${c.items.map(p => `\n      - ${item(p)}`).join('')}`;
+      }).join('');
+      return `  ${g.meal.name} — ${plural(portions, 'portion')}, ${plural(g.boxes.length, 'box', 'boxes')}\n    Whole batch to cook:${batch}${perBox}`;
+    });
+    return lines.length ? `${prepTitle(i, preps)}\n${lines.join('\n\n')}` : '';
   }).filter(Boolean);
   const portion = (m, size = 1, flex = {}) => `${m.name} (${plural(size, 'portion')}, ${fmt(slotTotals(m, size, flex).cals)} kcal)`;
   // Each meal's line, then what to weigh out (the box from the batch and where it's kept, plus extras)

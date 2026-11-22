@@ -136,6 +136,24 @@ function batchIngredients({ meal, boxes }) {
   });
   return [...byFood.values()].sort((a, b) => b.grams - a.grams);
 }
+// What goes in each box of a batch: [{ boxes, weight, items: [{ food, grams }] }]. A box holds its share of the
+// 🔗 ratio ingredients (its portion size); a 🍱 make-ahead box holds its whole portion. Boxes with the same contents share an entry.
+function boxContents({ meal, boxes }) {
+  const out = new Map();
+  boxes.forEach(b => {
+    const items = (meal.prepAhead ? slotItems(meal, b.size, b.flex) : slotItems(meal, b.size).filter(p => p.mode === 'ratio'))
+      .filter(p => p.food && p.grams > 0).map(p => ({ food: p.food, grams: p.grams })).sort((x, y) => y.grams - x.grams);
+    const key = items.map(p => `${p.food.name}:${smallWeight(p.grams)}`).join('|');
+    if (!out.has(key)) out.set(key, { boxes: [], weight: b.weight, items });
+    out.get(key).boxes.push(b);
+  });
+  return [...out.values()];
+}
+// "Wed (Eddie), fridge": a box's day (plus its meal when that person has two boxes of it that day), whose, and where
+const boxWhere = (b, all) => `${shortDay(b.d)}${all.filter(x => x.d === b.d && x.who === b.who).length > 1 ? ` ${b.label.toLowerCase()}` : ''}${whoTag(b)}, ${STORAGE_PLACES[b.place]}`;
+// Grams with a decimal under 10g, so a box's share of the spices doesn't read "0g"
+const smallWeight = g => (g < 10 ? `${fmt1(g)}g` : fmtWeight(g));
+
 // "≈ 1.2kg cooked" for foods that change weight when cooked (rice, pasta, meat), else ''
 const cookedNote = (food, grams) => { const k = cookedFactorOf(food); return k !== 1 ? `≈ ${fmtWeight(grams * k)} cooked` : ''; };
 
